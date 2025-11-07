@@ -1,16 +1,38 @@
-# LLM Messenger - Ollama Chat Client
+# Ki-Whisperer - LLM Messenger
 
-Ein moderner Python-Chat-Client für lokale AI-Modelle mit Ollama-Integration.
+Ein moderner Chat-Client für Ollama mit anpassbarer Benutzeroberfläche und erweiterten Features.
 
-## Features
+## 🌟 Features
 
-- 🎨 Modernes, dunkles UI mit CustomTkinter
-- 📥 Modell-Download direkt aus der Anwendung
-- 🗑️ Modell-Verwaltung (Löschen, Auswählen)
-- 💬 Streaming-Chat mit AI-Modellen
-- 📝 Chat-Historie innerhalb einer Session
-- 🔄 Live-Status von Ollama
-- ⚡ Echtzeit-Updates
+### 💬 Chat-Interface
+- **Chat Bubbles**: Moderne Nachrichtendarstellung mit individuellen Bubbles
+- **Copy-Funktion**: Kopierbutton für jede einzelne Nachricht
+- **Nachrichten-Historie**: Navigation mit Pfeiltasten (↑/↓) durch vorherige Eingaben
+- **Sender-spezifische Farben**:
+  - **System**: Weinrot (#722F37)
+  - **Sie**: Matrix-Grün (#003300 / #00FF00) 
+  - **AI-Model**: Dunkelblau (#1E3A5F)
+
+### ⚙️ Konfiguration
+- **Config-Tab**: Vollständig anpassbare Oberfläche
+- **Farbeinstellungen**: 
+  - Individuelle Bubble-Farben für jeden Absender
+  - Hintergrund- und Textfarben getrennt einstellbar
+  - Konsolen-Farbschema anpassbar
+  - **🎨 RGB-Farbwähler**: Klick auf das 🎨-Symbol öffnet einen visuellen Farbwähler
+- **Schriftarten**:
+  - Separate Schriftarten für User, AI und System
+  - Einstellbare Schriftgröße (8-24px)
+  - Konsolen-Schriftart anpassbar
+- **Live-Anwendung**: Änderungen werden sofort bei neuen Nachrichten angewendet
+- **Reset-Funktion**: Zurücksetzen auf Standardwerte
+
+### 🛠️ Technische Features
+- **Modell-Download**: Direkter Download von Ollama-Modellen
+- **Streaming**: Live-Antworten vom AI-Model
+- **Stop-Funktion**: Abbrechen laufender Anfragen
+- **Threaded Operations**: UI bleibt responsive während AI-Generierung
+- **Fehlerbehandlung**: Robuste Fehlerbehandlung und Benutzer-Feedback
 
 ## Voraussetzungen
 
@@ -79,6 +101,31 @@ Ein moderner Python-Chat-Client für lokale AI-Modelle mit Ollama-Integration.
 - **Historie**: Chat-Verlauf bleibt während der Session erhalten
 - **Zeitstempel**: Alle Nachrichten haben Zeitstempel
 - **System-Meldungen**: Informationen über Status und Fehler
+
+### 🎨 Konfiguration & Anpassung
+- **Config-Tab**: Vollständig anpassbare Benutzeroberfläche
+- **Fixierte Buttons**: "Anwenden" und "Standard" buttons immer am unteren Rand sichtbar
+- **RGB-Farbwähler**: Klick auf 🎨-Buttons öffnet visuellen Farbwähler
+- **Farb-Preview-Icons**: Live-Vorschau der gewählten Farben mit farbigen Quadraten
+- **Komprimiertes Layout**: Mehr Optionen nebeneinander für bessere Übersicht
+- **Live-Updates**: Farb-Previews aktualisieren sich beim Tippen
+- **Individuelle Farben**: Separate Farben für User, AI und System-Nachrichten
+- **Schriftarten**: Anpassbare Fonts und Schriftgrößen
+- **Reset-Funktion**: Zurücksetzen auf Standardwerte
+
+## 📖 Verwendung
+
+### Konfiguration anpassen
+1. **Config-Tab öffnen**: Klicken Sie auf den "Config" Reiter
+2. **Farben wählen**:
+   - **Farb-Preview**: Farbige Quadrate ■ zeigen aktuelle Farben
+   - **Manuelle Eingabe**: Geben Sie Hex-Codes direkt ein (#FF0000) ODER
+   - **RGB-Farbwähler**: Klicken Sie auf 🎨-Buttons für visuellen Farbwähler
+   - **Live-Updates**: Preview-Icons aktualisieren sich beim Tippen
+3. **Schriftarten**: Wählen Sie aus horizontalen Dropdown-Menüs
+4. **Kompakte Ansicht**: Alle Optionen übersichtlich nebeneinander
+5. **Fixierte Buttons**: "✅ Anwenden" und "🔄 Standard" bleiben beim Scrollen immer am unteren Rand sichtbar
+6. **Schnelle Anwendung**: Buttons immer erreichbar ohne Scrollen
 
 ## Fehlerbehebung
 

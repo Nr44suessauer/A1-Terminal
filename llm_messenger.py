@@ -91,15 +91,38 @@ class ChatBubble(ctk.CTkFrame):
         )
         self.copy_btn.pack(side="right")
         
-        # Nachrichteninhalt
+        # Nachrichteninhalt - CTkTextbox mit optimierter Höhenberechnung
         message_font = (font, font_size)
+        
+        # Berechne die benötigte Höhe realistisch basierend auf Textinhalt
+        chars_per_line = 70
+        
+        # Analysiere jede Zeile einzeln für genauere Schätzung
+        lines = message.split('\n')
+        actual_lines = 0
+        for line in lines:
+            if len(line.strip()) == 0:  # Leere Zeile
+                actual_lines += 1
+            else:
+                # Berechne Umbrüche für diese Zeile
+                line_wraps = max(1, len(line) // chars_per_line)
+                actual_lines += line_wraps
+        
+        # Berechne Höhe mit optimiertem Puffer
+        line_height = font_size + 3  # Noch kompakter
+        calculated_height = actual_lines * line_height + 25  # Minimaler Puffer
+        
+        # Minimum 60px, Maximum 350px für sehr lange Nachrichten  
+        calculated_height = max(min(calculated_height, 350), 60)
+        
+        # Erstelle Textbox mit ausreichender Höhe (kein Scrolling nötig)
         self.message_label = ctk.CTkTextbox(
             self,
             wrap="word",
             font=message_font,
             text_color=text_color,
             fg_color="transparent",
-            height=min(max(len(message) // 60 + 1, 2) * 20, 200)  # Dynamische Höhe
+            height=calculated_height
         )
         self.message_label.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         
@@ -107,9 +130,138 @@ class ChatBubble(ctk.CTkFrame):
         self.message_label.insert("1.0", message)
         self.message_label.configure(state="disabled")
         
+        # Nach dem Rendering: Stelle sicher, dass die Höhe ausreicht
+        self.after(50, self.ensure_full_content_visible)
+        
         # Packe Bubble mit korrekter Ausrichtung
         self.pack(fill="x", padx=20 if anchor == "e" else 5, 
                  pady=5, anchor=anchor)
+    
+    def ensure_full_content_visible(self):
+        """Stellt sicher, dass der gesamte Inhalt ohne Scrolling sichtbar ist"""
+        try:
+            # Aktiviere temporär für Messungen
+            self.message_label.configure(state="normal")
+            
+            # Hole die aktuelle Textbox-Höhe und prüfe, ob Scrolling nötig ist
+            self.message_label.see("end")  # Gehe zum Ende
+            
+            # Messe die tatsächlich benötigte Höhe - optimiert
+            try:
+                total_lines = int(self.message_label.index('end-1c').split('.')[0])
+                font_size = self.app_config.get("ai_font_size" if "🤖" in self.sender 
+                                               else "system_font_size" if self.sender == "System"
+                                               else "user_font_size", 11)
+                
+                # Optimierte, kompaktere Berechnung
+                needed_height = total_lines * (font_size + 3) + 25  # Minimaler Puffer
+                current_height = self.message_label.cget("height")
+                
+                # Maximale Höhe begrenzen und nur erweitern wenn wirklich nötig
+                max_height = 350  # Reduzierte maximale Bubble-Höhe
+                needed_height = min(needed_height, max_height)
+                
+                # Nur erweitern wenn deutlich mehr Höhe benötigt wird (Toleranz: 20px)
+                if needed_height > current_height + 20:
+                    self.message_label.configure(height=needed_height)
+                    
+            except Exception as e:
+                # Falls Messung fehlschlägt, behalte aktuelle Höhe
+                print(f"Höhenmessung fehlgeschlagen: {e}")
+                
+            # Deaktiviere wieder
+            self.message_label.configure(state="disabled")
+            
+        except Exception as e:
+            print(f"Vollständige Sichtbarkeit konnte nicht sichergestellt werden: {e}")
+    
+    def update_style(self, new_config):
+        """Aktualisiert das Bubble-Styling basierend auf neuer Konfiguration"""
+        self.app_config = new_config
+        
+        # Bestimme neue Styling-Parameter
+        if self.sender == "Sie":
+            bubble_color = self.app_config.get("user_bg_color", "#003300")
+            text_color = self.app_config.get("user_text_color", "#00FF00")
+            font = self.app_config.get("user_font", "Courier New")
+            font_size = self.app_config.get("user_font_size", 11)
+            border_color = text_color
+        elif "🤖" in self.sender:
+            bubble_color = self.app_config.get("ai_bg_color", "#1E3A5F")
+            text_color = self.app_config.get("ai_text_color", "white")
+            font = self.app_config.get("ai_font", "Consolas")
+            font_size = self.app_config.get("ai_font_size", 11)
+            border_color = None
+        else:  # System
+            bubble_color = self.app_config.get("system_bg_color", "#722F37")
+            text_color = self.app_config.get("system_text_color", "white")
+            font = self.app_config.get("system_font", "Arial")
+            font_size = self.app_config.get("system_font_size", 10)
+            border_color = None
+        
+        # Aktualisiere Bubble-Farben
+        self.configure(fg_color=bubble_color)
+        if self.sender == "Sie" and border_color:
+            self.configure(border_color=border_color)
+        
+        # Aktualisiere Header-Styling
+        header_font = (font, 10, "bold")
+        self.sender_label.configure(font=header_font, text_color=text_color)
+        
+        # Aktualisiere Kopier-Button
+        self.copy_btn.configure(
+            font=(font, 9),
+            border_color=text_color if border_color else text_color
+        )
+        
+        # Aktualisiere Message-Styling
+        message_font = (font, font_size)
+        self.message_label.configure(
+            font=message_font,
+            text_color=text_color,
+            state="normal"  # Temporär aktivieren für Updates
+        )
+        
+        # Neuberechnung der Höhe mit neuer Schriftgröße
+        self.recalculate_height(font_size)
+        
+        # Wieder deaktivieren
+        self.message_label.configure(state="disabled")
+    
+    def recalculate_height(self, font_size):
+        """Berechnet die Bubble-Höhe neu basierend auf neuer Schriftgröße"""
+        try:
+            # Optimierte Höhenberechnung - identisch zur initialen Berechnung
+            chars_per_line = 70
+            
+            # Analysiere jede Zeile einzeln für genauere Schätzung
+            lines = self.message.split('\n')
+            actual_lines = 0
+            for line in lines:
+                if len(line.strip()) == 0:  # Leere Zeile
+                    actual_lines += 1
+                else:
+                    # Berechne Umbrüche für diese Zeile
+                    line_wraps = max(1, len(line) // chars_per_line)
+                    actual_lines += line_wraps
+            
+            # Berechne Höhe mit optimiertem Puffer
+            line_height = font_size + 3  # Kompakter Zeilenabstand
+            # Berechne Höhe mit optimiertem Puffer
+            line_height = font_size + 3  # Kompakter Zeilenabstand
+            new_height = actual_lines * line_height + 25  # Minimaler Puffer
+            
+            # Minimum 60px, Maximum 350px
+            new_height = max(min(new_height, 350), 60)
+            
+            # Aktualisiere die Höhe
+            self.message_label.configure(height=new_height)
+            
+            # Nach kurzer Zeit exakte Nachmessung
+            self.after(25, self.ensure_full_content_visible)
+            
+        except Exception as e:
+            print(f"Höhenneuberechnung fehlgeschlagen: {e}")
     
     def copy_message(self):
         """Kopiert die Nachricht in die Zwischenablage"""
@@ -514,6 +666,22 @@ class LLMMessenger:
         self.message_history = []  # Liste aller gesendeten Nachrichten
         self.history_index = -1    # Aktueller Index in der Historie (-1 = keine Auswahl)
         
+        # Chat-Bubbles für Session Management
+        self.chat_bubbles = []
+        
+        # Session Management Variablen früh initialisieren
+        self.sessions = {}
+        self.current_session_id = None
+        self.current_session_bias = ""
+        
+        # Sessions-Verzeichnis früh initialisieren
+        self.sessions_dir = os.path.join(os.getcwd(), "sessions")
+        if not os.path.exists(self.sessions_dir):
+            os.makedirs(self.sessions_dir)
+        
+        # Auto-Save Timer für Session-Speicherung
+        self.auto_save_timer = None
+        
         # YAML-Konfigurationsdatei
         self.config_file = "ki_whisperer_config.yaml"
         
@@ -546,7 +714,10 @@ class LLMMessenger:
             # Konsolen-Farben
             "console_bg": "#000000",         # Konsolen-Hintergrund
             "console_text": "#FFFFFF",       # Konsolen-Text
-            "console_font": "Consolas"       # Konsolen-Schriftart
+            "console_font": "Consolas",      # Konsolen-Schriftart
+            
+            # UI-Optionen
+            "show_system_messages": True     # System-Nachrichten im Chat anzeigen
         }
     
     def load_config(self):
@@ -726,6 +897,774 @@ class LLMMessenger:
         except Exception:
             # Fallback auf normale print-Funktion
             print(text)
+
+    # ============================================
+    # SESSION MANAGEMENT SYSTEM
+    # ============================================
+    
+    def setup_session_panel(self):
+        """Erstellt das Session Management Panel"""
+        # Session Panel Header
+        header_frame = ctk.CTkFrame(self.session_panel)
+        header_frame.pack(fill="x", padx=5, pady=5)
+        
+        title_label = ctk.CTkLabel(header_frame, text="📁 Sessions", 
+                                  font=("Arial", 16, "bold"))
+        title_label.pack(pady=5)
+        
+        # Neue Session Button
+        new_session_btn = ctk.CTkButton(
+            header_frame, 
+            text="➕ Neue Session",
+            command=self.create_new_session,
+            width=240,
+            height=30,
+            font=("Arial", 11, "bold"),
+            fg_color="#2B8A3E",
+            hover_color="#37A24B"
+        )
+        new_session_btn.pack(pady=5)
+        
+        # Session Liste
+        sessions_frame = ctk.CTkFrame(self.session_panel)
+        sessions_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        list_label = ctk.CTkLabel(sessions_frame, text="🗂️ Session Liste:", 
+                                 font=("Arial", 12, "bold"))
+        list_label.pack(anchor="w", padx=10, pady=(10, 5))
+        
+        # Scrollbare Session-Liste
+        self.session_listbox = ctk.CTkScrollableFrame(sessions_frame, height=200)
+        self.session_listbox.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        # Aktuelle Session Info
+        current_frame = ctk.CTkFrame(self.session_panel)
+        current_frame.pack(fill="x", padx=5, pady=5)
+        
+        current_label = ctk.CTkLabel(current_frame, text="📌 Aktuelle Session:", 
+                                    font=("Arial", 12, "bold"))
+        current_label.pack(anchor="w", padx=10, pady=(10, 5))
+        
+        # Session Details
+        self.current_session_label = ctk.CTkLabel(
+            current_frame, 
+            text="Keine Session aktiv",
+            font=("Arial", 10),
+            anchor="w"
+        )
+        self.current_session_label.pack(anchor="w", padx=10, pady=2)
+        
+        # Model Info
+        self.current_model_label = ctk.CTkLabel(
+            current_frame,
+            text="Model: Nicht ausgewählt", 
+            font=("Arial", 10),
+            anchor="w"
+        )
+        self.current_model_label.pack(anchor="w", padx=10, pady=2)
+        
+        # BIAS Input
+        bias_label = ctk.CTkLabel(current_frame, text="🎯 Session BIAS:", 
+                                 font=("Arial", 10, "bold"))
+        bias_label.pack(anchor="w", padx=10, pady=(10, 2))
+        
+        self.session_bias_entry = ctk.CTkTextbox(
+            current_frame,
+            height=60,
+            font=("Arial", 9)
+        )
+        self.session_bias_entry.pack(fill="x", padx=10, pady=2)
+        
+        # BIAS speichern Button
+        save_bias_btn = ctk.CTkButton(
+            current_frame,
+            text="💾 BIAS speichern",
+            command=self.save_session_bias,
+            height=25,
+            font=("Arial", 9)
+        )
+        save_bias_btn.pack(fill="x", padx=10, pady=5)
+        
+        # Session Actions
+        actions_frame = ctk.CTkFrame(current_frame)
+        actions_frame.pack(fill="x", padx=10, pady=5)
+        
+        # Manueller Session-Speichern Button entfernt - Auto-Save ist aktiv
+        
+        delete_session_btn = ctk.CTkButton(
+            actions_frame,
+            text="🗑️ Session löschen",
+            command=self.delete_current_session,
+            height=25,
+            font=("Arial", 9),
+            width=130,  # Breiter für längeren Text
+            fg_color="#C92A2A",
+            hover_color="#E03131"
+        )
+        delete_session_btn.pack(side="left", padx=2)  # Nach links verschoben
+        
+        # Alle Sessions löschen Button - direkt nebeneinander
+        cleanup_btn = ctk.CTkButton(
+            actions_frame,
+            text="🧹 Alle Sessions löschen",
+            command=self.delete_all_sessions,
+            height=25,
+            font=("Arial", 9),
+            width=150,  # Angepasste Breite für nebeneinander
+            fg_color="#8B0000",
+            hover_color="#A52A2A"
+        )
+        cleanup_btn.pack(side="left", padx=5)  # Nebeneinander mit delete_session_btn
+        
+        # Debug Sessions Button in separatem Frame
+        debug_frame = ctk.CTkFrame(self.session_panel)
+        debug_frame.pack(fill="x", padx=5, pady=5)
+        
+        debug_btn = ctk.CTkButton(
+            debug_frame,
+            text="🔍 Debug Sessions",
+            command=self.show_session_debug,
+            height=25,
+            font=("Arial", 9),
+            fg_color="#4A4A4A",
+            hover_color="#5A5A5A",
+            width=240
+        )
+        debug_btn.pack(pady=2)
+        
+        # Sessions-Verzeichnis öffnen Button
+        folder_btn = ctk.CTkButton(
+            debug_frame,
+            text="📁 Sessions-Ordner öffnen",
+            command=self.open_sessions_folder,
+            height=25,
+            font=("Arial", 9),
+            fg_color="#2D5A87",
+            hover_color="#3D6A97",
+            width=240
+        )
+        folder_btn.pack(pady=2)
+        
+        # Chat-Historie löschen Button
+        clear_history_btn = ctk.CTkButton(
+            debug_frame,
+            text="🗑️ Chat-Historie löschen",
+            command=self.clear_chat_history,
+            height=25,
+            font=("Arial", 9),
+            fg_color="#B8860B",
+            hover_color="#DAA520",
+            width=240
+        )
+        clear_history_btn.pack(pady=2)
+
+    def initialize_session_management(self):
+        """Initialisiert das Session Management System"""
+        # Session-Datenstrukturen (bereits im __init__ initialisiert)
+        # self.sessions = {}  # Alle Sessions: {session_id: session_data}
+        # self.current_session_id = None
+        # self.current_session_bias = ""
+        
+        # Sessions-Ordner (bereits im __init__ erstellt)
+        # self.sessions_dir = os.path.join(os.getcwd(), "sessions")
+        # if not os.path.exists(self.sessions_dir):
+        #     os.makedirs(self.sessions_dir)
+            
+        # Chat-Bubbles für Session Management
+        self.chat_bubbles = []
+        
+        # Lade bestehende Sessions
+        self.load_all_sessions()
+        
+        # Zeige Session-Status an
+        if not self.sessions:
+            self.console_print("📋 Keine bestehenden Sessions gefunden", "info")
+            self.console_print("💡 Klicken Sie auf '➕ Neue Session' um zu beginnen", "info")
+        else:
+            # Lade die neueste Session automatisch
+            latest_session = max(self.sessions.keys(), key=lambda x: self.sessions[x].get("created_at", ""))
+            self.load_session(latest_session)
+            self.console_print(f"📂 Neueste Session automatisch geladen: {latest_session[:12]}...", "success")
+        
+        # Debug: Session-Analyse
+        self.debug_session_analysis()
+        
+        # Keine automatische Session-Erstellung - Nutzer muss explizit erstellen
+        # UI aktualisieren um "Keine Session" Zustand zu zeigen
+        self.update_session_list()
+        self.update_current_session_display()
+
+    def create_new_session(self):
+        """Erstellt eine neue Session"""
+        # Session-ID generieren (mit Millisekunden für Eindeutigkeit)
+        timestamp = datetime.now()
+        session_id = timestamp.strftime("%Y%m%d_%H%M%S") + f"_{timestamp.microsecond // 1000:03d}"
+        
+        # Prüfen ob Session-ID bereits existiert (Sicherheitscheck)
+        counter = 1
+        original_session_id = session_id
+        while session_id in self.sessions:
+            session_id = f"{original_session_id}_{counter}"
+            counter += 1
+            self.console_print(f"⚠️ Session-ID Konflikt, verwende: {session_id}", "warning")
+        
+        # Aktuelles Model verwenden oder None setzen
+        current_model = getattr(self, 'current_model', None)
+        
+        # Session-Daten
+        session_data = {
+            "session_id": session_id,
+            "created_at": timestamp.isoformat(),
+            "last_modified": timestamp.isoformat(),
+            "model": current_model,
+            "bias": "",
+            "messages": [],
+            "total_messages": 0
+        }
+        
+        # Session speichern
+        self.sessions[session_id] = session_data
+        self.current_session_id = session_id
+        
+        # Chat leeren
+        self.clear_chat_for_new_session()
+        
+        # UI aktualisieren
+        self.update_session_list()
+        self.update_current_session_display()
+        
+        # Session persistent speichern mit Feedback
+        self.save_session_with_feedback()
+        
+        self.console_print(f"✅ Neue Session erstellt: {session_id}", "success")
+
+    def debug_session_analysis(self):
+        """Debug-Funktion zur Analyse von Session-Problemen"""
+        if not self.sessions:
+            return
+            
+        self.console_print(f"🔍 Session-Analyse: {len(self.sessions)} Sessions gefunden", "info")
+        
+        # Prüfe auf ähnliche Sessions (gleiche Erstellungszeiten)
+        session_times = {}
+        for session_id, session_data in self.sessions.items():
+            created_at = session_data.get("created_at", "")
+            if created_at:
+                try:
+                    date_obj = datetime.fromisoformat(created_at)
+                    time_key = date_obj.strftime("%Y%m%d_%H%M%S")  # Nur Sekunden-Genauigkeit
+                    
+                    if time_key not in session_times:
+                        session_times[time_key] = []
+                    session_times[time_key].append(session_id)
+                except:
+                    pass
+        
+        # Warne bei möglichen Duplikaten
+        for time_key, session_ids in session_times.items():
+            if len(session_ids) > 1:
+                self.console_print(f"⚠️ Mögliche Duplikate gefunden zur Zeit {time_key}:", "warning")
+                for sid in session_ids:
+                    session_data = self.sessions[sid]
+                    msg_count = session_data.get("total_messages", 0)
+                    model = session_data.get("model", "Kein Model")
+                    self.console_print(f"   🆔 {sid[-12:]} | 💬 {msg_count} Msg | 🤖 {model}", "info")
+
+    def show_session_debug(self):
+        """Zeigt detaillierte Session-Debug-Informationen"""
+        debug_text = "🔍 SESSION DEBUG INFORMATION\n" + "="*50 + "\n\n"
+        
+        if not self.sessions:
+            debug_text += "❌ Keine Sessions vorhanden\n"
+        else:
+            debug_text += f"📊 Anzahl Sessions: {len(self.sessions)}\n"
+            debug_text += f"🔄 Aktuelle Session: {self.current_session_id}\n\n"
+            
+            # Session-Details
+            for i, (session_id, session_data) in enumerate(sorted(self.sessions.items(), 
+                                                                 key=lambda x: x[1].get("created_at", ""), 
+                                                                 reverse=True), 1):
+                debug_text += f"SESSION #{i}:\n"
+                debug_text += f"   🆔 ID: {session_id}\n"
+                debug_text += f"   📅 Erstellt: {session_data.get('created_at', 'Unbekannt')}\n"
+                debug_text += f"   ⏰ Geändert: {session_data.get('last_modified', 'Unbekannt')}\n"
+                debug_text += f"   🤖 Model: {session_data.get('model', 'Nicht gesetzt')}\n"
+                debug_text += f"   💬 Nachrichten: {session_data.get('total_messages', 0)}\n"
+                debug_text += f"   📝 BIAS: {'Ja' if session_data.get('bias', '') else 'Nein'}\n"
+                
+                # Prüfe auf Session-Datei
+                session_file = os.path.join(self.sessions_dir, f"session_{session_id}.json")
+                file_exists = os.path.exists(session_file)
+                debug_text += f"   💾 Datei: {'✅ Vorhanden' if file_exists else '❌ Fehlt'}\n"
+                
+                if file_exists:
+                    try:
+                        stat = os.stat(session_file)
+                        debug_text += f"   📏 Dateigröße: {stat.st_size} Bytes\n"
+                    except:
+                        debug_text += f"   📏 Dateigröße: Unlesbar\n"
+                
+                debug_text += "\n"
+        
+        # Zeige Debug-Info in einem Dialog
+        debug_dialog = ctk.CTkToplevel(self.root)
+        debug_dialog.title("🔍 Session Debug Information")
+        debug_dialog.geometry("600x500")
+        debug_dialog.transient(self.root)
+        debug_dialog.grab_set()
+        
+        # Text-Widget für Debug-Ausgabe
+        debug_textbox = ctk.CTkTextbox(
+            debug_dialog,
+            font=("Consolas", 10),
+            wrap="word"
+        )
+        debug_textbox.pack(fill="both", expand=True, padx=10, pady=10)
+        debug_textbox.insert("1.0", debug_text)
+        debug_textbox.configure(state="disabled")
+        
+        # Close-Button
+        close_btn = ctk.CTkButton(
+            debug_dialog,
+            text="Schließen",
+            command=debug_dialog.destroy,
+            width=100
+        )
+        close_btn.pack(pady=10)
+
+    def open_sessions_folder(self):
+        """Öffnet das Sessions-Verzeichnis im Windows Explorer"""
+        try:
+            import subprocess
+            import platform
+            
+            # Stelle sicher, dass das Verzeichnis existiert
+            if not os.path.exists(self.sessions_dir):
+                os.makedirs(self.sessions_dir)
+                self.console_print(f"📁 Sessions-Verzeichnis erstellt: {self.sessions_dir}", "info")
+            
+            # Öffne das Verzeichnis im System-Explorer
+            if platform.system() == "Windows":
+                subprocess.run(['explorer', self.sessions_dir], check=True)
+            elif platform.system() == "Darwin":  # macOS
+                subprocess.run(['open', self.sessions_dir], check=True)
+            else:  # Linux
+                subprocess.run(['xdg-open', self.sessions_dir], check=True)
+                
+            self.console_print(f"📂 Sessions-Ordner geöffnet: {self.sessions_dir}", "success")
+            
+        except Exception as e:
+            self.console_print(f"❌ Fehler beim Öffnen des Sessions-Ordners: {e}", "error")
+
+    def clear_chat_history(self):
+        """Löscht die Chat-Historie für einen frischen Kontext mit dem Model"""
+        result = messagebox.askyesno(
+            "Chat-Historie löschen",
+            "⚠️ Chat-Historie löschen?\n\n"
+            f"Dies löscht den Kontext für das AI-Model.\n"
+            f"Die Nachrichten bleiben in der Session sichtbar,\n"
+            f"aber das Model vergisst den bisherigen Verlauf.\n\n"
+            f"Möchten Sie fortfahren?"
+        )
+        
+        if result:
+            old_count = len(self.chat_history)
+            self.chat_history = []
+            
+            self.console_print(f"🗑️ Chat-Historie gelöscht: {old_count} Nachrichten entfernt", "success")
+            self.add_to_chat("System", "🗑️ Chat-Historie für AI-Model gelöscht - Frischer Kontext ab sofort")
+
+    def load_session(self, session_id):
+        """Lädt eine bestehende Session"""
+        if session_id not in self.sessions:
+            return False
+            
+        # Aktuelle Session wechseln
+        self.current_session_id = session_id
+        session_data = self.sessions[session_id]
+        
+        # Chat leeren und Session-Nachrichten laden
+        self.clear_chat_for_new_session()
+        
+        # Chat-Historie für LLM zurücksetzen und neu aufbauen
+        self.chat_history = []
+        
+        # Model setzen wenn vorhanden
+        if session_data.get("model"):
+            self.current_model = session_data["model"]
+            if hasattr(self, 'model_dropdown'):
+                self.model_dropdown.set(self.current_model)
+        
+        # BIAS setzen
+        self.current_session_bias = session_data.get("bias", "")
+        if hasattr(self, 'session_bias_entry'):
+            self.session_bias_entry.delete("1.0", "end")
+            self.session_bias_entry.insert("1.0", self.current_session_bias)
+        
+        # Nachrichten laden und Chat-Historie für LLM aufbauen
+        for msg_data in session_data.get("messages", []):
+            # Visuelle Nachricht wiederherstellen
+            self.restore_chat_message(msg_data)
+            
+            # Chat-Historie für LLM aufbauen (nur User und AI-Nachrichten, keine System-Nachrichten)
+            sender = msg_data.get("sender", "")
+            message = msg_data.get("message", "")
+            
+            if sender == "Sie":
+                self.chat_history.append({"role": "user", "content": message})
+            elif sender.startswith("🤖") and not sender.startswith("System"):
+                # AI-Antwort hinzufügen
+                self.chat_history.append({"role": "assistant", "content": message})
+        
+        # Debug-Info über wiederhergestellte Chat-Historie
+        if self.chat_history:
+            self.console_print(f"💬 Chat-Historie wiederhergestellt: {len(self.chat_history)} Nachrichten für LLM-Kontext", "success")
+        
+        # UI aktualisieren
+        self.update_current_session_display()
+        
+        self.console_print(f"📂 Session geladen: {session_id}", "info")
+        return True
+
+    def save_current_session(self):
+        """Speichert die aktuelle Session"""
+        if not self.current_session_id:
+            return False
+            
+        session_data = self.sessions[self.current_session_id]
+        
+        # Aktuelle Daten sammeln
+        session_data["last_modified"] = datetime.now().isoformat()
+        session_data["model"] = getattr(self, 'current_model', None)
+        session_data["bias"] = self.current_session_bias
+        session_data["total_messages"] = self.count_chat_messages()
+        
+        # Chat-Nachrichten sammeln
+        messages = []
+        for bubble in self.chat_bubbles:
+            msg_data = {
+                "timestamp": bubble.timestamp,
+                "sender": bubble.sender,
+                "message": bubble.message
+            }
+            messages.append(msg_data)
+        
+        session_data["messages"] = messages
+        
+        # Session-Datei speichern
+        session_file = os.path.join(self.sessions_dir, f"session_{self.current_session_id}.json")
+        try:
+            with open(session_file, 'w', encoding='utf-8') as f:
+                json.dump(session_data, f, ensure_ascii=False, indent=2)
+            
+            # Nur bei manuellem Speichern in Konsole ausgeben, nicht bei Auto-Save
+            # self.console_print(f"💾 Session gespeichert: {self.current_session_id}", "success")
+            return True
+        except Exception as e:
+            self.console_print(f"❌ Fehler beim Speichern der Session: {e}", "error")
+            return False
+
+    def auto_save_session(self):
+        """Automatisches Speichern mit Debounce-Logik"""
+        # Lösche vorherigen Timer falls vorhanden
+        if self.auto_save_timer:
+            self.root.after_cancel(self.auto_save_timer)
+        
+        # Starte neuen Timer für verzögertes Speichern (200ms)
+        self.auto_save_timer = self.root.after(200, self.perform_auto_save)
+    
+    def perform_auto_save(self):
+        """Führt das tatsächliche automatische Speichern durch"""
+        try:
+            if self.save_current_session():
+                # Nur in Debug-Modus anzeigen, um Konsole nicht zu überlasten
+                # self.console_print(f"💾 Auto-Save: Session gespeichert", "info")
+                pass
+        except Exception as e:
+            self.console_print(f"❌ Auto-Save Fehler: {e}", "error")
+        finally:
+            self.auto_save_timer = None
+
+    def save_session_with_feedback(self):
+        """Manuelles Speichern mit Konsolen-Feedback"""
+        if self.save_current_session():
+            self.console_print(f"💾 Session manuell gespeichert: {self.current_session_id}", "success")
+            return True
+        return False
+
+    def load_all_sessions(self):
+        """Lädt alle Sessions aus dem Sessions-Ordner"""
+        try:
+            session_files = [f for f in os.listdir(self.sessions_dir) 
+                           if f.startswith("session_") and f.endswith(".json")]
+            
+            for session_file in session_files:
+                session_path = os.path.join(self.sessions_dir, session_file)
+                try:
+                    with open(session_path, 'r', encoding='utf-8') as f:
+                        session_data = json.load(f)
+                        session_id = session_data.get("session_id")
+                        if session_id:
+                            self.sessions[session_id] = session_data
+                except Exception as e:
+                    self.console_print(f"❌ Fehler beim Laden der Session {session_file}: {e}", "warning")
+            
+            self.update_session_list()
+            self.console_print(f"📂 {len(self.sessions)} Sessions geladen", "info")
+            
+        except Exception as e:
+            self.console_print(f"❌ Fehler beim Laden der Sessions: {e}", "error")
+
+    def update_session_list(self):
+        """Aktualisiert die Session-Liste in der UI"""
+        if not hasattr(self, 'session_listbox'):
+            return
+            
+        # Lösche alte Einträge
+        for widget in self.session_listbox.winfo_children():
+            widget.destroy()
+        
+        # Sortiere Sessions nach Erstellungsdatum (neueste zuerst)
+        sorted_sessions = sorted(self.sessions.items(), 
+                               key=lambda x: x[1].get("created_at", ""), 
+                               reverse=True)
+        
+        for session_id, session_data in sorted_sessions:
+            # Session-Info
+            created_date = session_data.get("created_at", "Unbekannt")
+            if created_date != "Unbekannt":
+                try:
+                    date_obj = datetime.fromisoformat(created_date)
+                    date_str = date_obj.strftime("%d.%m.%Y %H:%M:%S")  # Mit Sekunden für bessere Unterscheidung
+                except:
+                    date_str = created_date[:19] if len(created_date) > 19 else created_date
+            else:
+                date_str = created_date
+            
+            msg_count = session_data.get("total_messages", 0)
+            model_name = session_data.get("model", "Kein Model")
+            model_name = model_name[:15] if model_name else "Kein Model"
+            
+            # Session-ID für bessere Unterscheidung (letzte 8 Zeichen)
+            session_short_id = session_id[-8:]
+            
+            # Session-Button mit Session-ID
+            button_text = f"🆔 {session_short_id}\n📅 {date_str}\n💬 {msg_count} Msg | 🤖 {model_name}"
+            
+            session_btn = ctk.CTkButton(
+                self.session_listbox,
+                text=button_text,
+                command=lambda sid=session_id: self.load_session(sid),
+                height=65,  # Höher wegen zusätzlicher ID-Zeile
+                font=("Arial", 9),
+                anchor="w"
+            )
+            
+            # Aktuelle Session hervorheben
+            if session_id == self.current_session_id:
+                session_btn.configure(fg_color="#1f538d", hover_color="#2966a3")
+            
+            session_btn.pack(fill="x", pady=2)
+
+    def update_current_session_display(self):
+        """Aktualisiert die Anzeige der aktuellen Session"""
+        if not hasattr(self, 'current_session_label'):
+            return
+            
+        if self.current_session_id and self.current_session_id in self.sessions:
+            session_data = self.sessions[self.current_session_id]
+            created_date = session_data.get("created_at", "Unbekannt")
+            
+            if created_date != "Unbekannt":
+                try:
+                    date_obj = datetime.fromisoformat(created_date)
+                    date_str = date_obj.strftime("%d.%m.%Y %H:%M")
+                except:
+                    date_str = created_date[:16]
+            else:
+                date_str = created_date
+            
+            self.current_session_label.configure(text=f"ID: {self.current_session_id[:8]}...\nErstellt: {date_str}")
+            
+            # Model Info - handle None values correctly
+            model_info = session_data.get("model", None)
+            if model_info is None or model_info == "":
+                model_display = "Nicht ausgewählt"
+            else:
+                model_display = model_info
+            self.current_model_label.configure(text=f"Model: {model_display}")
+        else:
+            # Keine aktive Session
+            self.current_session_label.configure(
+                text="🚫 Keine Session aktiv\n\n💡 Klicken Sie auf '➕ Neue Session'\num zu beginnen"
+            )
+            self.current_model_label.configure(text="Model: Nicht ausgewählt")
+
+    def save_session_bias(self):
+        """Speichert den Session-BIAS"""
+        if not hasattr(self, 'session_bias_entry'):
+            return
+            
+        bias_text = self.session_bias_entry.get("1.0", "end-1c")
+        self.current_session_bias = bias_text
+        
+        if self.current_session_id and self.current_session_id in self.sessions:
+            self.sessions[self.current_session_id]["bias"] = bias_text
+            
+        self.console_print("💾 Session-BIAS gespeichert", "success")
+
+    def delete_current_session(self):
+        """Löscht die aktuelle Session"""
+        if not self.current_session_id:
+            return
+            
+        # Bestätigungs-Dialog
+        result = messagebox.askyesno(
+            "Session löschen",
+            f"Möchten Sie die Session {self.current_session_id} wirklich löschen?\n\nDieser Vorgang kann nicht rückgängig gemacht werden."
+        )
+        
+        if result:
+            deleted_session_id = self.current_session_id
+            
+            # Session-Datei löschen
+            session_file = os.path.join(self.sessions_dir, f"session_{self.current_session_id}.json")
+            try:
+                if os.path.exists(session_file):
+                    os.remove(session_file)
+            except Exception as e:
+                self.console_print(f"❌ Fehler beim Löschen der Session-Datei: {e}", "error")
+            
+            # Session aus Speicher entfernen
+            if self.current_session_id in self.sessions:
+                del self.sessions[self.current_session_id]
+            
+            self.console_print(f"🗑️ Session gelöscht: {deleted_session_id}", "warning")
+            
+            # Prüfe ob noch andere Sessions vorhanden sind
+            if self.sessions:
+                # Lade die neueste verfügbare Session
+                latest_session = max(self.sessions.keys(), 
+                                   key=lambda x: self.sessions[x].get("created_at", ""))
+                self.load_session(latest_session)
+                self.console_print(f"🔄 Gewechselt zu Session: {latest_session}", "info")
+            else:
+                # Alle Sessions gelöscht - Chat leeren aber keine neue Session erstellen
+                self.current_session_id = None
+                self.clear_chat_for_new_session()
+                
+                # UI für "keine Session" Zustand anpassen
+                self.update_session_list()
+                self.update_current_session_display()
+                
+                # BIAS-Feld leeren
+                if hasattr(self, 'session_bias_entry'):
+                    self.session_bias_entry.delete("1.0", "end")
+                
+                # Model zurücksetzen
+                self.current_model = None
+                if hasattr(self, 'model_dropdown'):
+                    self.model_dropdown.set("Keine Modelle verfügbar")
+                
+                self.console_print("🔄 Alle Sessions gelöscht - Chat bereit für neue Session", "info")
+
+    def delete_all_sessions(self):
+        """Löscht alle Sessions nach Bestätigung"""
+        if not self.sessions:
+            messagebox.showinfo("Keine Sessions", "Es sind keine Sessions zum Löschen vorhanden.")
+            return
+        
+        session_count = len(self.sessions)
+        
+        # Bestätigungs-Dialog
+        result = messagebox.askyesno(
+            "Alle Sessions löschen",
+            f"Möchten Sie wirklich ALLE {session_count} Sessions löschen?\n\n⚠️ WARNUNG: Dieser Vorgang kann nicht rückgängig gemacht werden!\nAlle Chat-Verläufe und Session-Daten gehen verloren."
+        )
+        
+        if result:
+            # Alle Session-Dateien löschen
+            deleted_count = 0
+            failed_count = 0
+            
+            for session_id in list(self.sessions.keys()):
+                session_file = os.path.join(self.sessions_dir, f"session_{session_id}.json")
+                try:
+                    if os.path.exists(session_file):
+                        os.remove(session_file)
+                        deleted_count += 1
+                except Exception as e:
+                    failed_count += 1
+                    self.console_print(f"❌ Fehler beim Löschen von {session_id}: {e}", "error")
+            
+            # Alle Sessions aus Speicher entfernen
+            self.sessions.clear()
+            self.current_session_id = None
+            
+            # UI zurücksetzen
+            self.clear_chat_for_new_session()
+            self.update_session_list()
+            self.update_current_session_display()
+            
+            # BIAS-Feld leeren
+            if hasattr(self, 'session_bias_entry'):
+                self.session_bias_entry.delete("1.0", "end")
+            
+            # Model zurücksetzen
+            self.current_model = None
+            if hasattr(self, 'model_dropdown'):
+                self.model_dropdown.set("Keine Modelle verfügbar")
+            
+            # Ergebnis anzeigen
+            if failed_count == 0:
+                self.console_print(f"🧹 Alle {deleted_count} Sessions erfolgreich gelöscht", "success")
+                messagebox.showinfo(
+                    "Bereinigung abgeschlossen", 
+                    f"✅ Alle {deleted_count} Sessions wurden erfolgreich gelöscht.\n\nKlicken Sie auf '➕ Neue Session' um zu beginnen."
+                )
+            else:
+                self.console_print(f"🧹 {deleted_count} Sessions gelöscht, {failed_count} Fehler", "warning")
+                messagebox.showwarning(
+                    "Bereinigung mit Fehlern", 
+                    f"⚠️ {deleted_count} Sessions gelöscht, aber {failed_count} Fehler aufgetreten.\nSiehe Konsole für Details."
+                )
+
+    def clear_chat_for_new_session(self):
+        """Leert den Chat für eine neue Session"""
+        # Lösche alle Chat-Bubbles
+        if hasattr(self, 'chat_bubbles'):
+            for bubble in self.chat_bubbles:
+                try:
+                    bubble.destroy()
+                except:
+                    pass
+            self.chat_bubbles.clear()
+        
+        # Chat-History leeren
+        self.chat_history.clear()
+        self.message_history.clear()
+        self.history_index = -1
+
+    def restore_chat_message(self, msg_data):
+        """Stellt eine Chat-Nachricht aus Session-Daten wieder her"""
+        timestamp = msg_data.get("timestamp", datetime.now().strftime("%H:%M:%S"))
+        sender = msg_data.get("sender", "System")
+        message = msg_data.get("message", "")
+        
+        # Chat-Bubble erstellen
+        bubble = ChatBubble(
+            self.chat_display_frame,
+            sender=sender,
+            message=message,
+            timestamp=timestamp,
+            app_config=self.config
+        )
+        
+        self.chat_bubbles.append(bubble)
+
+    # ============================================
+    # ENDE SESSION MANAGEMENT SYSTEM  
+    # ============================================
     
     def setup_ui(self):
         """Erstellt die Benutzeroberfläche"""
@@ -734,8 +1673,21 @@ class LLMMessenger:
         self.main_frame = ctk.CTkFrame(self.root)
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
-        # Tab-System erstellen
-        self.tab_view = ctk.CTkTabview(self.main_frame)
+        # Horizontal Layout: Session Panel links + Tab System rechts
+        self.content_frame = ctk.CTkFrame(self.main_frame)
+        self.content_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Session Management Panel (links)
+        self.session_panel = ctk.CTkFrame(self.content_frame, width=280)
+        self.session_panel.pack(side="left", fill="y", padx=(5, 10), pady=5)
+        self.session_panel.pack_propagate(False)  # Verhindert Größenänderung
+        self.setup_session_panel()
+        
+        # Tab-System (rechts)
+        self.tab_frame = ctk.CTkFrame(self.content_frame)
+        self.tab_frame.pack(side="right", fill="both", expand=True, padx=5, pady=5)
+        
+        self.tab_view = ctk.CTkTabview(self.tab_frame)
         self.tab_view.pack(fill="both", expand=True)
         
         # Chat-Tab hinzufügen
@@ -748,6 +1700,9 @@ class LLMMessenger:
         
         # Standard-Tab setzen
         self.tab_view.set("Chat")
+        
+        # Session Management initialisieren
+        self.initialize_session_management()
     
     def setup_chat_tab(self):
         """Erstellt den Chat-Tab mit allen Elementen"""
@@ -899,8 +1854,7 @@ class LLMMessenger:
         self.progress_bar = ctk.CTkProgressBar(self.progress_frame)
         self.progress_bar.pack(fill="x", padx=20, pady=5)
         
-        # Initial Chat-Nachricht
-        self.add_to_chat("System", "Willkommen im LLM Messenger! Wählen Sie ein Modell aus oder laden Sie eines herunter.")
+        # Keine automatische Session-Erstellung beim Start mehr
     
     def setup_config_tab(self):
         """Erstellt den Config-Tab mit Einstellungen"""
@@ -1095,6 +2049,36 @@ class LLMMessenger:
             values=["Consolas", "Courier New", "Lucida Console", "Monaco"], width=120)
         self.console_font_combo.pack(side="left", padx=2)
         self.console_font_combo.set(self.config["console_font"])
+        
+        # UI-Optionen Sektion
+        ui_frame = ctk.CTkFrame(config_scroll)
+        ui_frame.pack(fill="x", pady=(10, 15))
+        
+        ui_title = ctk.CTkLabel(ui_frame, text="⚙️ Benutzeroberfläche", font=("Arial", 16, "bold"))
+        ui_title.pack(pady=(10, 5))
+        
+        # System-Nachrichten Toggle
+        system_msg_frame = ctk.CTkFrame(ui_frame)
+        system_msg_frame.pack(fill="x", padx=15, pady=(5, 10))
+        
+        self.show_system_messages_var = ctk.BooleanVar(value=self.config.get("show_system_messages", True))
+        
+        system_msg_checkbox = ctk.CTkCheckBox(
+            system_msg_frame,
+            text="📢 System-Nachrichten im Chat anzeigen",
+            variable=self.show_system_messages_var,
+            font=("Arial", 12)
+        )
+        system_msg_checkbox.pack(side="left", padx=10, pady=10)
+        
+        # Beschreibung
+        system_msg_info = ctk.CTkLabel(
+            system_msg_frame, 
+            text="(Deaktivieren für sauberen Chat ohne Modell-Wechsel, Downloads, etc.)",
+            font=("Arial", 10),
+            text_color="gray"
+        )
+        system_msg_info.pack(side="left", padx=10, pady=10)
     
     def open_color_picker(self, entry_widget):
         """Öffnet einen RGB-Farbwähler und setzt den gewählten Farbwert in das Entry-Feld"""
@@ -1245,17 +2229,41 @@ class LLMMessenger:
             self.config["console_text"] = self.console_text_entry.get() or "#FFFFFF"
             self.config["console_font"] = self.console_font_combo.get()
             
+            # UI-Optionen
+            self.config["show_system_messages"] = self.show_system_messages_var.get()
+            
             # Speichere Konfiguration in YAML-Datei
             self.save_config()
             
+            # ✨ Aktualisiere alle bestehenden Chat-Bubbles mit neuer Konfiguration
+            self.update_all_chat_bubbles()
+            
             # Show success message
-            self.add_to_chat("System", "✅ Konfiguration erfolgreich angewendet und gespeichert! Neue Nachrichten verwenden die neuen Einstellungen.")
+            self.add_to_chat("System", "✅ Konfiguration erfolgreich angewendet und gespeichert! Alle Chat-Bubbles wurden aktualisiert.")
             
             # Teste Konsolen-Ausgabe mit neuen Einstellungen
             self.test_console_output()
             
         except Exception as e:
             self.add_to_chat("System", f"❌ Fehler beim Anwenden der Konfiguration: {e}")
+    
+    def update_all_chat_bubbles(self):
+        """Aktualisiert das Styling aller bestehenden Chat-Bubbles"""
+        try:
+            updated_count = 0
+            for bubble in self.chat_bubbles:
+                bubble.update_style(self.config)
+                updated_count += 1
+            
+            if updated_count > 0:
+                self.console_print(f"🎨 {updated_count} Chat-Bubbles mit neuer Konfiguration aktualisiert", "info")
+                
+                # Scrolle den Chat-Bereich nach unten, um Updates sichtbar zu machen
+                self.chat_display_frame._parent_canvas.after(100, 
+                    lambda: self.chat_display_frame._parent_canvas.yview_moveto(1.0))
+                    
+        except Exception as e:
+            self.console_print(f"❌ Fehler beim Aktualisieren der Chat-Bubbles: {e}", "error")
     
     def test_console_output(self):
         """Testet die Konsolen-Ausgabe mit den aktuellen Einstellungen"""
@@ -1315,6 +2323,9 @@ class LLMMessenger:
         self.console_text_entry.delete(0, 'end')
         self.console_text_entry.insert(0, self.config["console_text"])
         self.console_font_combo.set(self.config["console_font"])
+        
+        # UI-Optionen
+        self.show_system_messages_var.set(self.config.get("show_system_messages", True))
         
         self.add_to_chat("System", "🔄 Konfiguration auf Standardwerte zurückgesetzt und gespeichert!")
     
@@ -1380,8 +2391,30 @@ class LLMMessenger:
         """Behandelt Modell-Auswahl"""
         if choice != "Keine Modelle verfügbar":
             self.current_model = choice
-            self.chat_history = []  # Chat-Historie zurücksetzen
+            
+            # Chat-Historie nur bei neuen/leeren Sessions zurücksetzen
+            # Bei bestehenden Sessions mit Nachrichten die Historie beibehalten
+            if not hasattr(self, 'chat_bubbles') or len(self.chat_bubbles) == 0:
+                self.chat_history = []  # Nur bei leeren Sessions zurücksetzen
+                self.console_print(f"🔄 Neue Session - Chat-Historie zurückgesetzt", "info")
+            else:
+                self.console_print(f"📚 Bestehende Session - Chat-Historie beibehalten ({len(self.chat_history)} Nachrichten)", "info")
+            
+            # Model in aktueller Session speichern
+            if hasattr(self, 'current_session_id') and self.current_session_id:
+                if self.current_session_id in self.sessions:
+                    self.sessions[self.current_session_id]["model"] = choice
+                    self.sessions[self.current_session_id]["last_modified"] = datetime.now().isoformat()
+                    
+                    # Session persistent speichern
+                    self.save_session_with_feedback()
+                    
+                    # UI vollständig aktualisieren
+                    self.update_current_session_display()
+                    self.update_session_list()
+            
             self.add_to_chat("System", f"Modell gewechselt zu: {choice}")
+            self.console_print(f"🤖 Model gewechselt: {choice}", "info")
     
     def show_download_dialog(self):
         """Zeigt Dialog zum Modell-Download"""
@@ -1562,10 +2595,21 @@ class LLMMessenger:
                 # Denkprozess-Indikator hinzufügen
                 self.root.after(0, self.add_thinking_indicator)
                 
+                # Session-BIAS berücksichtigen
+                session_bias = ""
+                if hasattr(self, 'current_session_bias') and self.current_session_bias:
+                    session_bias = self.current_session_bias.strip()
+                
+                # Chat-History mit BIAS vorbereiten
+                modified_history = self.chat_history.copy()
+                if session_bias:
+                    # BIAS als System-Nachricht am Anfang hinzufügen
+                    modified_history.insert(0, {"role": "system", "content": session_bias})
+                
                 response_stream = self.ollama.chat_with_model(
                     self.current_model, 
                     message, 
-                    self.chat_history.copy()
+                    modified_history
                 )
                 
                 if response_stream:
@@ -1592,7 +2636,7 @@ class LLMMessenger:
                         
                         self.root.after(0, show_final_response)
                         
-                        # Chat-Historie aktualisieren
+                        # Chat-Historie aktualisieren (ohne BIAS für permanente Historie)
                         self.chat_history.append({"role": "user", "content": message})
                         self.chat_history.append({"role": "assistant", "content": full_response})
                     
@@ -1711,11 +2755,72 @@ class LLMMessenger:
         
         return '\n\n'.join(formatted_paragraphs)
     
+    def count_chat_messages(self):
+        """Zählt nur echte Chat-Nachrichten (User + AI, keine System-Nachrichten)"""
+        return len([bubble for bubble in self.chat_bubbles if bubble.sender != "System"])
+    
     def add_to_chat(self, sender, message):
         """Fügt eine Chat-Bubble zum Chat hinzu"""
         timestamp = datetime.now().strftime("%H:%M:%S")
         
-        # Erstelle neue Chat-Bubble mit aktueller Config
+        # System-Nachrichten ausblenden wenn Flag gesetzt ist
+        if sender == "System" and not self.config.get("show_system_messages", True):
+            # System-Nachricht wird trotzdem in der Session gespeichert für spätere Verwendung
+            if self.current_session_id and self.current_session_id in self.sessions:
+                msg_data = {
+                    "timestamp": timestamp,
+                    "sender": sender,
+                    "message": message
+                }
+                self.sessions[self.current_session_id]["messages"].append(msg_data)
+                self.sessions[self.current_session_id]["last_modified"] = datetime.now().isoformat()
+                self.auto_save_session()
+            return None  # Keine UI-Bubble erstellen
+        
+        # Erstelle automatisch eine Session falls keine aktiv ist
+        if not self.current_session_id or self.current_session_id not in self.sessions:
+            self.console_print("🔄 Keine aktive Session gefunden, erstelle neue Session", "info")
+            self.create_new_session()
+        
+        # Prüfe nochmals ob Session existiert (Sicherheitscheck)
+        if not self.current_session_id or self.current_session_id not in self.sessions:
+            self.console_print("❌ Fehler: Konnte keine Session erstellen!", "error")
+            return
+        
+        # Prüfe ob die letzte Bubble eine System-Nachricht ist und diese erweitert werden kann
+        if (sender == "System" and 
+            self.chat_bubbles and 
+            self.chat_bubbles[-1].sender == "System"):
+            
+            # Erweitere die letzte System-Bubble
+            last_bubble = self.chat_bubbles[-1]
+            current_message = last_bubble.message_label.get("1.0", "end-1c")
+            new_combined_message = current_message + "\n" + message
+            
+            # Aktualisiere die Bubble
+            last_bubble.message_label.delete("1.0", "end")
+            last_bubble.message_label.insert("1.0", new_combined_message)
+            
+            # Aktualisiere auch die Session-Daten
+            if (self.current_session_id and 
+                self.current_session_id in self.sessions and 
+                self.sessions[self.current_session_id]["messages"]):
+                
+                last_msg = self.sessions[self.current_session_id]["messages"][-1]
+                if last_msg["sender"] == "System":
+                    last_msg["message"] = new_combined_message
+                    last_msg["timestamp"] = timestamp  # Aktualisiere Timestamp
+                    
+            # Scrolle nach unten
+            self.chat_display_frame._parent_canvas.after(100, 
+                lambda: self.chat_display_frame._parent_canvas.yview_moveto(1.0))
+            
+            # Auto-Save für aktualisierte Nachricht
+            self.auto_save_session()
+            
+            return last_bubble
+        
+        # Erstelle neue Chat-Bubble mit aktueller Config (normale Logik)
         bubble = ChatBubble(
             self.chat_display_frame,
             sender=sender,
@@ -1726,6 +2831,20 @@ class LLMMessenger:
         
         # Füge Bubble zur Liste hinzu
         self.chat_bubbles.append(bubble)
+        
+        # Füge Nachricht zur aktuellen Session hinzu
+        if self.current_session_id and self.current_session_id in self.sessions:
+            msg_data = {
+                "timestamp": timestamp,
+                "sender": sender,
+                "message": message
+            }
+            self.sessions[self.current_session_id]["messages"].append(msg_data)
+            self.sessions[self.current_session_id]["total_messages"] = self.count_chat_messages()
+            self.sessions[self.current_session_id]["last_modified"] = datetime.now().isoformat()
+            
+            # ✅ Automatisches Speichern nach jeder Nachricht
+            self.auto_save_session()
         
         # Scrolle nach unten
         self.chat_display_frame._parent_canvas.after(100, 
@@ -2082,7 +3201,7 @@ Kannst du ein einfaches Beispiel geben?
                         "session_start": self.chat_bubbles[0].timestamp if self.chat_bubbles else None,
                         "session_end": self.chat_bubbles[-1].timestamp if self.chat_bubbles else None,
                         "model": getattr(self, 'current_model', 'Unbekannt'),
-                        "total_messages": len(self.chat_bubbles)
+                        "total_messages": self.count_chat_messages()
                     },
                     "messages": []
                 }
@@ -2131,7 +3250,7 @@ Kannst du ein einfaches Beispiel geben?
         lines.append(f"**Session-ID:** `{session_id}`")
         lines.append(f"**Exportiert am:** {datetime.now().strftime('%d.%m.%Y um %H:%M:%S')}")
         lines.append(f"**Modell:** {getattr(self, 'current_model', 'Unbekannt')}")
-        lines.append(f"**Anzahl Nachrichten:** {len(self.chat_bubbles)}")
+        lines.append(f"**Anzahl Nachrichten:** {self.count_chat_messages()}")
         
         # Session-Zeitraum
         if self.chat_bubbles:
