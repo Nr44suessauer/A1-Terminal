@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LLM Messenger - Ein Chat-Client für Ollama
+A1 Terminal - Ein Chat-Client für Ollama
 Ein moderner Chat-Client mit Ollama-Integration für lokale AI-Modelle
 """
 
@@ -502,6 +502,61 @@ class ChatBubble(ctk.CTkFrame):
             self.after(1000, lambda: self.copy_btn.configure(text="📋 Kopieren"))
 
 class OllamaManager:
+    def _get_fallback_models(self):
+        """Fallback-Liste mit bewährten Modellen"""
+        return sorted([
+            # Kleine Modelle (< 4GB)
+            "tinyllama:1.1b", "phi3:mini", "gemma:2b", "orca-mini:3b",
+            "phi:2.7b", "qwen2:0.5b", "qwen2:1.5b",
+            # Mittlere Modelle (4-8GB) 
+            "llama3.2:3b", "mistral:7b", "llama2:7b", "codellama:7b",
+            "gemma:7b", "neural-chat:7b", "zephyr:7b", "openchat:7b",
+            "nous-hermes:7b", "starcode:7b", "deepseek-coder:6.7b",
+            "magicoder:6.7b", "sqlcoder:7b", "vicuna:7b", "llava:7b",
+            "orca-mini:7b", "dolphin-mistral:7b", "wizard-math:7b",
+            "medllama2:7b", "stable-beluga:7b", "falcon:7b", "aya:8b",
+            # Große Modelle (8-16GB)
+            "llama2:13b", "codellama:13b", "vicuna:13b", "nous-hermes:13b",
+            "orca-mini:13b", "llava:13b", "stable-beluga:13b", "starcode:15b",
+            "solar:10.7b", "sqlcoder:15b",
+            # Sehr große Modelle (16GB+)
+            "llama2:70b", "codellama:34b", "vicuna:33b", "llava:34b",
+            "deepseek-coder:33b", "mixtral:8x7b", "aya:35b", "falcon:40b",
+            "mixtral:8x22b", "llama2-uncensored:70b",
+            # Basis-Modelle ohne Größenangabe
+            "llama3.2", "llama2", "mistral", "codellama", "gemma", "phi3",
+            "neural-chat", "zephyr", "openchat", "tinyllama", "mixtral"
+        ])
+
+    def categorize_models_by_size(self, models):
+        """Kategorisiert Modelle nach ihrer Größe"""
+        categories = {
+            "🟢 Klein (< 4GB RAM)": [],
+            "🟡 Mittel (4-8GB RAM)": [],  
+            "🟠 Groß (8-16GB RAM)": [],
+            "🔴 Sehr Groß (16GB+ RAM)": []
+        }
+        for model in models:
+            model_lower = model.lower()
+            # Kleine Modelle
+            if any(size in model_lower for size in ['0.5b', '1b', '1.1b', '1.5b', '2b', '2.7b', '3b', ':mini']):
+                categories["🟢 Klein (< 4GB RAM)"].append(model)
+            # Sehr große Modelle  
+            elif any(size in model_lower for size in ['70b', '34b', '33b', '35b', '40b', '22b', '8x']):
+                categories["🔴 Sehr Groß (16GB+ RAM)"].append(model)
+            # Große Modelle
+            elif any(size in model_lower for size in ['13b', '15b', '10.7b']):
+                categories["🟠 Groß (8-16GB RAM)"].append(model)
+            # Mittlere Modelle (7b und ähnliche)
+            elif any(size in model_lower for size in ['7b', '6.7b', '8b']) or ':' not in model:
+                categories["🟡 Mittel (4-8GB RAM)"].append(model)
+            else:
+                # Fallback für unbekannte Größen
+                categories["🟡 Mittel (4-8GB RAM)"].append(model)
+        # Sortiere jede Kategorie
+        for category in categories:
+            categories[category] = sorted(categories[category])
+        return categories
     """Klasse für Ollama-API-Interaktionen"""
     
     def __init__(self):
@@ -536,98 +591,28 @@ class OllamaManager:
             # Versuche zuerst die offizielle Ollama Library API
             url = "https://registry.ollama.ai/v2/_catalog"
             headers = {
-                'User-Agent': 'LLM-Messenger/1.0',
+                'User-Agent': 'A1-Terminal/1.0',
                 'Accept': 'application/json'
             }
-            
             response = requests.get(url, headers=headers, timeout=10)
-            
             if response.status_code == 200:
                 data = response.json()
                 models = data.get('repositories', [])
-                
                 # Erweitere mit beliebten Varianten falls verfügbar
                 expanded_models = []
                 for model in models:
                     expanded_models.append(model)
-                    # Füge häufige Größenvarianten hinzu
                     for size in [':7b', ':13b', ':34b', ':70b']:
                         variant = f"{model}{size}"
                         if variant not in expanded_models:
                             expanded_models.append(variant)
-                
                 return sorted(expanded_models)
             else:
                 # Fallback auf bewährte Modell-Liste
                 return self._get_fallback_models()
-                
         except Exception as e:
             print(f"Fehler beim Abrufen der Live-Modelle: {e}")
             return self._get_fallback_models()
-    
-    def _get_fallback_models(self):
-        """Fallback-Liste mit bewährten Modellen"""
-        return sorted([
-            # Kleine Modelle (< 4GB)
-            "tinyllama:1.1b", "phi3:mini", "gemma:2b", "orca-mini:3b",
-            "phi:2.7b", "qwen2:0.5b", "qwen2:1.5b",
-            
-            # Mittlere Modelle (4-8GB) 
-            "llama3.2:3b", "mistral:7b", "llama2:7b", "codellama:7b",
-            "gemma:7b", "neural-chat:7b", "zephyr:7b", "openchat:7b",
-            "nous-hermes:7b", "starcode:7b", "deepseek-coder:6.7b",
-            "magicoder:6.7b", "sqlcoder:7b", "vicuna:7b", "llava:7b",
-            "orca-mini:7b", "dolphin-mistral:7b", "wizard-math:7b",
-            "medllama2:7b", "stable-beluga:7b", "falcon:7b", "aya:8b",
-            
-            # Große Modelle (8-16GB)
-            "llama2:13b", "codellama:13b", "vicuna:13b", "nous-hermes:13b",
-            "orca-mini:13b", "llava:13b", "stable-beluga:13b", "starcode:15b",
-            "solar:10.7b", "sqlcoder:15b",
-            
-            # Sehr große Modelle (16GB+)
-            "llama2:70b", "codellama:34b", "vicuna:33b", "llava:34b",
-            "deepseek-coder:33b", "mixtral:8x7b", "aya:35b", "falcon:40b",
-            "mixtral:8x22b", "llama2-uncensored:70b",
-            
-            # Basis-Modelle ohne Größenangabe
-            "llama3.2", "llama2", "mistral", "codellama", "gemma", "phi3",
-            "neural-chat", "zephyr", "openchat", "tinyllama", "mixtral"
-        ])
-    
-    def categorize_models_by_size(self, models):
-        """Kategorisiert Modelle nach ihrer Größe"""
-        categories = {
-            "🟢 Klein (< 4GB RAM)": [],
-            "🟡 Mittel (4-8GB RAM)": [],  
-            "🟠 Groß (8-16GB RAM)": [],
-            "🔴 Sehr Groß (16GB+ RAM)": []
-        }
-        
-        for model in models:
-            model_lower = model.lower()
-            
-            # Kleine Modelle
-            if any(size in model_lower for size in ['0.5b', '1b', '1.1b', '1.5b', '2b', '2.7b', '3b', ':mini']):
-                categories["🟢 Klein (< 4GB RAM)"].append(model)
-            # Sehr große Modelle  
-            elif any(size in model_lower for size in ['70b', '34b', '33b', '35b', '40b', '22b', '8x']):
-                categories["🔴 Sehr Groß (16GB+ RAM)"].append(model)
-            # Große Modelle
-            elif any(size in model_lower for size in ['13b', '15b', '10.7b']):
-                categories["🟠 Groß (8-16GB RAM)"].append(model)
-            # Mittlere Modelle (7b und ähnliche)
-            elif any(size in model_lower for size in ['7b', '6.7b', '8b']) or ':' not in model:
-                categories["🟡 Mittel (4-8GB RAM)"].append(model)
-            else:
-                # Fallback für unbekannte Größen
-                categories["🟡 Mittel (4-8GB RAM)"].append(model)
-        
-        # Sortiere jede Kategorie
-        for category in categories:
-            categories[category] = sorted(categories[category])
-        
-        return categories
     
     def download_model(self, model_name, progress_callback=None, parent_messenger=None):
         """Lädt ein Modell mit optimierter Performance, detailliertem Logging und Stop-Funktionalität herunter"""
@@ -862,7 +847,7 @@ class CategorizedComboBox(ctk.CTkComboBox):
             return None  # Kategorie-Header ausgewählt
         return selected
 
-class LLMMessenger:
+class A1Terminal:
     """Hauptanwendungsklasse"""
     def __init__(self):
         self._session_just_loaded = False
@@ -4082,5 +4067,5 @@ Kannst du ein einfaches Beispiel geben?
         self.root.mainloop()
 
 if __name__ == "__main__":
-    app = LLMMessenger()
+    app = A1Terminal()
     app.run()

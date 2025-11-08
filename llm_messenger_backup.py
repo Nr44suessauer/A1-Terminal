@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LLM Messenger - Ein Chat-Client für Ollama
+A1 Terminal - Ein Chat-Client für Ollama
 Ein moderner Chat-Client mit Ollama-Integration für lokale AI-Modelle
 """
 
@@ -930,7 +930,7 @@ class CategorizedComboBox(ctk.CTkComboBox):
             return None  # Kategorie-Header ausgewählt
         return selected
 
-class LLMMessenger:
+class A1Terminal:
     """Hauptanwendungsklasse"""
     
     def __init__(self):
@@ -4668,5 +4668,5 @@ Kannst du ein einfaches Beispiel geben?
         self.root.mainloop()
 
 if __name__ == "__main__":
-    app = LLMMessenger()
+    app = A1Terminal()
     app.run()
