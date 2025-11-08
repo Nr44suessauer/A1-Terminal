@@ -1,0 +1,11 @@
+{
+  "session_id": "20251108_125534_251",
+  "name": "Session 08.11 12-55",
+  "created_at": "2025-11-08T12:55:34.251602",
+  "last_modified": "2025-11-08T13:10:26.978909",
+  "model": "llama2:13b",
+  "bias": "",
+  "messages": [],
+  "total_messages": 0,
+  "color": "#1f538d"
+}

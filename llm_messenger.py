@@ -839,75 +839,8 @@ class CategorizedComboBox(ctk.CTkComboBox):
         self.flat_values = []
         self.update_values_from_categories()
         super().__init__(master, values=self.flat_values, **kwargs)
-        self.enable_mousewheel_scrolling()
-    
-    def enable_mousewheel_scrolling(self):
-        """Aktiviert Mausrad-Scrolling für die ComboBox"""
-        def on_mousewheel(event):
-            try:
-                current_values = list(self.cget("values"))
-                if not current_values:
-                    return "break"
-                    
-                current_value = self.get()
-                if current_value in current_values:
-                    current_index = current_values.index(current_value)
-                else:
-                    current_index = 0
-                
-                # Scroll-Richtung bestimmen (Windows: event.delta, Linux/Mac: event.num)
-                if hasattr(event, 'delta'):
-                    # Windows
-                    delta = event.delta
-                else:
-                    # Linux/Mac
-                    delta = -120 if event.num == 5 else 120
-                
-                if delta > 0:  # Nach oben scrollen (vorheriger Wert)
-                    new_index = current_index - 1
-                else:  # Nach unten scrollen (nächster Wert)
-                    new_index = current_index + 1
-                
-                # Kategorie-Header überspringen und Grenzen beachten
-                while 0 <= new_index < len(current_values):
-                    if (current_values[new_index].startswith("--- ") and 
-                        current_values[new_index].endswith(" ---")):
-                        # Kategorie-Header überspringen
-                        if delta > 0:
-                            new_index -= 1
-                        else:
-                            new_index += 1
-                    else:
-                        # Gültiges Modell gefunden
-                        break
-                
-                # Grenzen prüfen und setzen
-                if 0 <= new_index < len(current_values):
-                    self.set(current_values[new_index])
-                    print(f"🎯 Scrolled to: {current_values[new_index]}")
-                        
-                return "break"  # Event nicht weiterleiten
-                        
-            except Exception as e:
-                print(f"Mousewheel scrolling error: {e}")
-                return "break"
-        
-        # Alle möglichen Mausrad-Events binden
-        self.bind("<MouseWheel>", on_mousewheel)  # Windows
-        self.bind("<Button-4>", on_mousewheel)    # Linux scroll up
-        self.bind("<Button-5>", on_mousewheel)    # Linux scroll down
-        
         # Auch Focus-Events binden für bessere Erkennung
         self.bind("<Enter>", lambda e: self.focus_set())
-        
-        # Auch auf dem internen Widget binden (falls CustomTkinter komplexer ist)
-        try:
-            if hasattr(self, '_dropdown_menu'):
-                self._dropdown_menu.bind("<MouseWheel>", on_mousewheel)
-            if hasattr(self, '_canvas'):
-                self._canvas.bind("<MouseWheel>", on_mousewheel)
-        except:
-            pass
     
     def update_values_from_categories(self):
         """Erstellt eine flache Liste aus den kategorisierten Werten"""
@@ -932,8 +865,8 @@ class CategorizedComboBox(ctk.CTkComboBox):
 
 class LLMMessenger:
     """Hauptanwendungsklasse"""
-    
     def __init__(self):
+        self._session_just_loaded = False
         self.root = ctk.CTk()
         self.root.title("LLM Messenger - Ollama Chat Client")
         self.root.geometry("1400x900")  # Etwas größer für bessere Darstellung
@@ -1195,46 +1128,6 @@ class LLMMessenger:
             # Fallback auf normale print-Funktion
             print(text)
     
-    def enable_combobox_mousewheel(self, combobox):
-        """Aktiviert Mausrad-Scrolling für eine normale ComboBox"""
-        def on_mousewheel(event):
-            try:
-                current_values = list(combobox.cget("values"))
-                if not current_values:
-                    return
-                    
-                current_value = combobox.get()
-                if current_value in current_values:
-                    current_index = current_values.index(current_value)
-                else:
-                    current_index = 0
-                
-                # Scroll-Richtung bestimmen (Windows: event.delta, Linux/Mac: event.num)
-                if hasattr(event, 'delta'):
-                    # Windows
-                    delta = event.delta
-                else:
-                    # Linux/Mac
-                    delta = -120 if event.num == 5 else 120
-                
-                if delta > 0:  # Nach oben scrollen (vorheriger Wert)
-                    new_index = max(0, current_index - 1)
-                else:  # Nach unten scrollen (nächster Wert)
-                    new_index = min(len(current_values) - 1, current_index + 1)
-                
-                if new_index != current_index:
-                    combobox.set(current_values[new_index])
-                    # Callback auslösen, falls vorhanden
-                    if hasattr(combobox, '_command') and combobox._command:
-                        combobox._command(current_values[new_index])
-                        
-            except Exception as e:
-                print(f"Mousewheel scrolling error: {e}")
-        
-        # Mausrad-Events binden
-        combobox.bind("<MouseWheel>", on_mousewheel)  # Windows
-        combobox.bind("<Button-4>", on_mousewheel)    # Linux scroll up
-        combobox.bind("<Button-5>", on_mousewheel)    # Linux scroll down
     
     def ensure_download_dropdown_scrolling(self):
         """Stellt sicher, dass das Download-Dropdown Mausrad-Scrolling hat"""
@@ -1340,7 +1233,6 @@ class LLMMessenger:
         self.model_dropdown.pack(side="left", fill="x", expand=True, padx=(2, 5), pady=2)  # Dynamische Breite
         
         # Mausrad-Scrolling für model_dropdown aktivieren
-        self.enable_combobox_mousewheel(self.model_dropdown)
         
         # Delete Button 
         self.delete_btn = ctk.CTkButton(
@@ -1416,13 +1308,7 @@ class LLMMessenger:
         # SESSION MANAGEMENT BEREICH (DARUNTER)
         # ============================================
         
-        # Session Panel Header
-        header_frame = ctk.CTkFrame(self.session_panel)
-        header_frame.pack(fill="x", padx=5, pady=5)
-        
-        title_label = ctk.CTkLabel(header_frame, text="📁 Sessions", 
-                                  font=("Arial", 16, "bold"))
-        title_label.pack(pady=5)
+    # (Session Panel Header entfernt)
         
         # Session Liste
         sessions_frame = ctk.CTkFrame(self.session_panel)
@@ -1453,70 +1339,71 @@ class LLMMessenger:
         self.session_listbox = ctk.CTkScrollableFrame(sessions_frame, height=150)
         self.session_listbox.pack(fill="both", expand=True, padx=10, pady=5)
         
-        # Aktuelle Session Info
-        current_frame = ctk.CTkFrame(self.session_panel)
-        current_frame.pack(fill="x", padx=5, pady=5)
-        
-        current_label = ctk.CTkLabel(current_frame, text="📌 Aktuelle Session:", 
+        # Aktuelle Session Info (mit blauer Umrandung)
+        self.current_frame = ctk.CTkFrame(self.session_panel, border_width=3, border_color="#00BFFF")
+        self.current_frame.pack(fill="x", padx=5, pady=5)
+
+
+        current_label = ctk.CTkLabel(self.current_frame, text="📌 Aktuelle Session:", 
                                     font=("Arial", 12, "bold"))
         current_label.pack(anchor="w", padx=10, pady=(10, 5))
-        
+
         # Session Details
         self.current_session_label = ctk.CTkLabel(
-            current_frame, 
+            self.current_frame, 
             text="Keine Session aktiv",
             font=("Arial", 10),
             anchor="w"
         )
         self.current_session_label.pack(anchor="w", padx=10, pady=2)
-        
+
         # Model Info
         self.current_model_label = ctk.CTkLabel(
-            current_frame,
+            self.current_frame,
             text="Model: Nicht ausgewählt", 
             font=("Arial", 10),
             anchor="w"
         )
         self.current_model_label.pack(anchor="w", padx=10, pady=2)
-        
+
         # BIAS Input
-        bias_label = ctk.CTkLabel(current_frame, text="🎯 Session BIAS:", 
+        bias_label = ctk.CTkLabel(self.current_frame, text="🎯 Session BIAS:", 
                                  font=("Arial", 10, "bold"))
         bias_label.pack(anchor="w", padx=10, pady=(10, 2))
-        
+
         self.session_bias_entry = ctk.CTkTextbox(
-            current_frame,
+            self.current_frame,
             height=60,
             font=("Arial", 9)
         )
         self.session_bias_entry.pack(fill="x", padx=10, pady=2)
-        
+
         # Auto-Save für BIAS bei Textänderung
         self.bias_auto_save_timer = None
         self.session_bias_entry.bind("<KeyRelease>", self.on_bias_text_changed)
         self.session_bias_entry.bind("<Button-1>", self.on_bias_text_changed)
-        
+
         # BIAS Info Label für aktuellen Status
         self.bias_info_label = ctk.CTkLabel(
-            current_frame,
+            self.current_frame,
             text="💭 BIAS nicht gesetzt",
             font=("Arial", 9),
             text_color="gray"
         )
         self.bias_info_label.pack(anchor="w", padx=10, pady=2)
-        
+
         # BIAS speichern Button (jetzt optional, da Auto-Save aktiv ist)
         save_bias_btn = ctk.CTkButton(
-            current_frame,
+            self.current_frame,
             text="💾 BIAS manuell speichern",
             command=self.save_session_bias,
             height=25,
             font=("Arial", 9)
         )
         save_bias_btn.pack(fill="x", padx=10, pady=5)
-        
+
         # Session Actions
-        actions_frame = ctk.CTkFrame(current_frame)
+        actions_frame = ctk.CTkFrame(self.current_frame)
         actions_frame.pack(fill="x", padx=10, pady=5)
         
         # Manueller Session-Speichern Button entfernt - Auto-Save ist aktiv
@@ -1575,20 +1462,7 @@ class LLMMessenger:
         )
         folder_btn.pack(side="left", fill="x", expand=True, padx=(1, 2))
         
-        # Zweite Reihe: Chat-Historie löschen  
-        debug_row2 = ctk.CTkFrame(debug_frame)
-        debug_row2.pack(fill="x", pady=2)
-        
-        clear_history_btn = ctk.CTkButton(
-            debug_row2,
-            text="🗑️ Chat-Historie",
-            command=self.clear_chat_history,
-            height=30,
-            font=("Arial", 9),
-            fg_color="#B8860B",
-            hover_color="#DAA520"
-        )
-        clear_history_btn.pack(side="left", fill="x", expand=True, padx=(1, 2))
+        # (Button '🗑️ Chat-Historie' entfernt)
 
     def initialize_session_management(self):
         """Initialisiert das Session Management System"""
@@ -1734,14 +1608,13 @@ class LLMMessenger:
                 debug_text += f"   💬 Nachrichten: {session_data.get('total_messages', 0)}\n"
                 debug_text += f"   📝 BIAS: {'Ja' if session_data.get('bias', '') else 'Nein'}\n"
                 
-                # Prüfe auf Session-Datei
-                session_file = os.path.join(self.sessions_dir, f"session_{session_id}.json")
-                file_exists = os.path.exists(session_file)
+                # Prüfe auf Session-Datei (beliebiger Name, aber mit passender ID)
+                matching_files = [f for f in os.listdir(self.sessions_dir) if f.endswith(f"_session_{session_id}.json")]
+                file_exists = len(matching_files) > 0
                 debug_text += f"   💾 Datei: {'✅ Vorhanden' if file_exists else '❌ Fehlt'}\n"
-                
                 if file_exists:
                     try:
-                        stat = os.stat(session_file)
+                        stat = os.stat(os.path.join(self.sessions_dir, matching_files[0]))
                         debug_text += f"   📏 Dateigröße: {stat.st_size} Bytes\n"
                     except:
                         debug_text += f"   📏 Dateigröße: Unlesbar\n"
@@ -1814,6 +1687,7 @@ class LLMMessenger:
             self.add_to_chat("System", "🗑️ Chat-Historie für AI-Model gelöscht - Frischer Kontext ab sofort")
 
     def load_session(self, session_id):
+        self._session_just_loaded = True
         """Lädt eine bestehende Session"""
         if session_id not in self.sessions:
             return False
@@ -1951,8 +1825,8 @@ class LLMMessenger:
     def load_all_sessions(self):
         """Lädt alle Sessions aus dem Sessions-Ordner"""
         try:
-            session_files = [f for f in os.listdir(self.sessions_dir) 
-                           if f.startswith("session_") and f.endswith(".json")]
+            session_files = [f for f in os.listdir(self.sessions_dir)
+                             if "_session_" in f and f.endswith(".json")]
             
             for session_file in session_files:
                 session_path = os.path.join(self.sessions_dir, session_file)
@@ -2032,30 +1906,35 @@ class LLMMessenger:
                     date_str = created_date[:16] if len(created_date) > 16 else created_date
             else:
                 date_str = created_date
-            
+
             msg_count = session_data.get("total_messages", 0)
             model_name = session_data.get("model", "Kein Model")
             model_name = model_name[:12] if model_name else "Kein Model"
-            
+
             # Token/Wort-Anzahl für diese Session berechnen
             word_count = self.calculate_session_word_count(session_data)
             word_display = f"{word_count}W" if word_count < 1000 else f"{word_count//1000:.1f}kW"
-            
+
+            # Aktive Session hervorheben: Keine gelbe Farbe, nur Session-Farbe verwenden
+            is_active = session_id == self.current_session_id
+
             # Session-Container für Name und Buttons
             session_container = ctk.CTkFrame(self.session_listbox)
             session_container.pack(fill="x", pady=2)
-            
+
             # Session-Button mit Namen - kompakter für schmale Fenster
             if len(session_name) > 20:
                 session_name_display = session_name[:17] + "..."
             else:
                 session_name_display = session_name
-                
+
             button_text = f"📝 {session_name_display}\n📅 {date_str}\n💬 {msg_count} | 🤖 {model_name[:8]} | 📊 {word_display}"
-            
+
             # Session-Farbe verwenden
             session_color = session_data.get("color", "#4A4A4A")
-            
+            btn_fg_color = session_color
+            btn_hover_color = self.adjust_color_brightness(btn_fg_color, 1.2)
+
             session_btn = ctk.CTkButton(
                 session_container,
                 text=button_text,
@@ -2063,15 +1942,15 @@ class LLMMessenger:
                 height=75,  # Etwas höher für mehr Text
                 font=("Arial", 9),
                 anchor="w",
-                fg_color=session_color,
-                hover_color=self.adjust_color_brightness(session_color, 1.2)  # Etwas heller beim Hover
+                fg_color=btn_fg_color,
+                hover_color=btn_hover_color
             )
             session_btn.pack(side="left", fill="both", expand=True, padx=(0, 5))
             
             # Button-Container für Rename und Color
             button_container = ctk.CTkFrame(session_container)
             button_container.pack(side="right")
-            
+
             # Color-Button  
             session_color = session_data.get("color", "#4A4A4A")  # Standard-Farbe falls keine gesetzt
             color_btn = ctk.CTkButton(
@@ -2085,7 +1964,7 @@ class LLMMessenger:
                 hover_color="#5A5A5A"
             )
             color_btn.pack(side="top", pady=(0, 5))
-            
+
             # Rename-Button
             rename_btn = ctk.CTkButton(
                 button_container,
@@ -2098,12 +1977,6 @@ class LLMMessenger:
                 hover_color="#5A5A5A"
             )
             rename_btn.pack(side="top")
-            
-            # Aktuelle Session hervorheben - aber Farbe beibehalten
-            if session_id == self.current_session_id:
-                # Session-Farbe verwenden aber mit stärkerem Kontrast für aktive Session
-                active_color = self.adjust_color_brightness(session_color, 1.3)
-                session_btn.configure(fg_color=active_color, hover_color=self.adjust_color_brightness(active_color, 1.1))
     
     def rename_session(self, session_id):
         """Zeigt einen Dialog zum Umbenennen einer Session"""
@@ -2593,13 +2466,21 @@ class LLMMessenger:
         if result:
             deleted_session_id = self.current_session_id
             
-            # Session-Datei löschen
-            session_file = os.path.join(self.sessions_dir, f"session_{self.current_session_id}.json")
+            # Alle zugehörigen Session-Dateien löschen (unabhängig vom Namen)
             try:
-                if os.path.exists(session_file):
-                    os.remove(session_file)
+                deleted_files = 0
+                for f in os.listdir(self.sessions_dir):
+                    if f.endswith(f"_session_{self.current_session_id}.json"):
+                        file_path = os.path.join(self.sessions_dir, f)
+                        try:
+                            os.remove(file_path)
+                            deleted_files += 1
+                        except Exception as e:
+                            self.console_print(f"❌ Fehler beim Löschen der Session-Datei {f}: {e}", "error")
+                if deleted_files == 0:
+                    self.console_print(f"⚠️ Keine Session-Datei für {self.current_session_id} gefunden.", "warning")
             except Exception as e:
-                self.console_print(f"❌ Fehler beim Löschen der Session-Datei: {e}", "error")
+                self.console_print(f"❌ Fehler beim Löschen der Session-Dateien: {e}", "error")
             
             # Session aus Speicher entfernen
             if self.current_session_id in self.sessions:
@@ -2661,14 +2542,19 @@ class LLMMessenger:
             failed_count = 0
             
             for session_id in list(self.sessions.keys()):
-                session_file = os.path.join(self.sessions_dir, f"session_{session_id}.json")
-                try:
-                    if os.path.exists(session_file):
-                        os.remove(session_file)
-                        deleted_count += 1
-                except Exception as e:
-                    failed_count += 1
-                    self.console_print(f"❌ Fehler beim Löschen von {session_id}: {e}", "error")
+                found_file = False
+                for f in os.listdir(self.sessions_dir):
+                    if f.endswith(f"_session_{session_id}.json"):
+                        found_file = True
+                        file_path = os.path.join(self.sessions_dir, f)
+                        try:
+                            os.remove(file_path)
+                            deleted_count += 1
+                        except Exception as e:
+                            failed_count += 1
+                            self.console_print(f"❌ Fehler beim Löschen von {f}: {e}", "error")
+                if not found_file:
+                    self.console_print(f"⚠️ Keine Session-Datei für {session_id} gefunden.", "warning")
             
             # Alle Sessions aus Speicher entfernen
             self.sessions.clear()
@@ -2954,7 +2840,6 @@ class LLMMessenger:
         self.user_font_combo.set(self.config["user_font"])
         
         # Mausrad-Scrolling für user_font_combo aktivieren
-        self.enable_combobox_mousewheel(self.user_font_combo)
         
         # Größen-Slider
         ctk.CTkLabel(user_font_frame, text="Größe:", width=40).pack(side="left", padx=(15, 2))
@@ -2984,7 +2869,6 @@ class LLMMessenger:
         self.ai_font_combo.set(self.config["ai_font"])
         
         # Mausrad-Scrolling für ai_font_combo aktivieren
-        self.enable_combobox_mousewheel(self.ai_font_combo)
         
         # Größen-Slider
         ctk.CTkLabel(ai_font_frame, text="Größe:", width=40).pack(side="left", padx=(15, 2))
@@ -3014,7 +2898,6 @@ class LLMMessenger:
         self.system_font_combo.set(self.config["system_font"])
         
         # Mausrad-Scrolling für system_font_combo aktivieren
-        self.enable_combobox_mousewheel(self.system_font_combo)
         
         # Größen-Slider
         ctk.CTkLabel(system_font_frame, text="Größe:", width=40).pack(side="left", padx=(15, 2))
@@ -3060,7 +2943,6 @@ class LLMMessenger:
         self.console_font_combo.set(self.config["console_font"])
         
         # Mausrad-Scrolling für console_font_combo aktivieren
-        self.enable_combobox_mousewheel(self.console_font_combo)
         
         # UI-Optionen Sektion
         ui_frame = ctk.CTkFrame(config_scroll)
@@ -3366,7 +3248,6 @@ class LLMMessenger:
                 self.root.after(0, lambda: self.available_dropdown.set("🔍 Wählen Sie eine Kategorie oder Modell..."))
                 
                 # Mausrad-Scrolling nach dem Setzen der Kategorien nochmals sicherstellen
-                self.root.after(0, lambda: self.ensure_download_dropdown_scrolling())
                 
                 model_count = sum(len(models) for models in categories.values())
                 self.root.after(0, lambda: self.add_to_chat("System", 
@@ -3619,28 +3500,18 @@ class LLMMessenger:
                 else:
                     print("🎯 Kein BIAS gesetzt")
                 
-                # Chat-History mit BIAS vorbereiten und komprimieren
-                compressed_history = self.compress_chat_history(self.chat_history)
-                modified_history = compressed_history.copy()
-                
-                if session_bias:
-                    # BIAS als System-Nachricht am Anfang hinzufügen
-                    modified_history.insert(0, {"role": "system", "content": session_bias})
-                
-                # Debug: Token-Ersparnis anzeigen (nur wenn Komprimierung aktiv)
-                if self.config.get("performance", {}).get("compress_chat_history", True):
-                    original_tokens = sum(len(str(msg.get("content", "")).split()) for msg in self.chat_history)
-                    compressed_tokens = sum(len(str(msg.get("content", "")).split()) for msg in modified_history)
-                    if original_tokens > compressed_tokens:
-                        savings = ((original_tokens - compressed_tokens) / original_tokens) * 100
-                        print(f"📊 Token-Komprimierung: {original_tokens} → {compressed_tokens} ({savings:.1f}% gespart)")
-                        self.root.after(0, lambda: self.console_print(f"📊 {original_tokens}→{compressed_tokens} Token ({savings:.1f}% gespart)", "info"))
-                    else:
-                        print(f"📊 Token-Count: {compressed_tokens} (keine Komprimierung nötig)")
+                # Nur bei Session-Laden: volle History, sonst nur BIAS und aktuelle User-Eingabe
+                if getattr(self, '_session_just_loaded', False):
+                    print("[INFO] Es wird die komplette Session-History an das Modell geschickt (Session wurde gerade geladen).")
+                    modified_history = self.chat_history.copy()
+                    if session_bias:
+                        modified_history.insert(0, {"role": "system", "content": session_bias})
+                    self._session_just_loaded = False
                 else:
-                    token_count = sum(len(str(msg.get("content", "")).split()) for msg in modified_history)
-                    print(f"📊 Token-Count: {token_count} (Komprimierung deaktiviert)")
-                
+                    # Nur BIAS (falls gesetzt) und aktuelle User-Eingabe
+                    modified_history = []
+                    if session_bias:
+                        modified_history.append({"role": "system", "content": session_bias})
                 # Letzte Model-Eingabe für Debug-Zwecke speichern
                 try:
                     history_copy = copy.deepcopy(modified_history)
@@ -3944,6 +3815,8 @@ class LLMMessenger:
     
     def remove_last_message(self):
         """Entfernt die letzte Nachricht (Thinking-Indikator)"""
+        # Stoppe die ASCII-Animation
+        self._thinking_animation_running = False
         if hasattr(self, 'current_thinking_bubble') and self.current_thinking_bubble:
             try:
                 self.current_thinking_bubble.destroy()
