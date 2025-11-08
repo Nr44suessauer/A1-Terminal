@@ -1644,9 +1644,10 @@ class LLMMessenger:
         current_model = getattr(self, 'current_model', None)
         
         # Session-Daten
+        session_name = f"Session {timestamp.strftime('%d.%m %H-%M')}"
         session_data = {
             "session_id": session_id,
-            "name": f"Session {timestamp.strftime('%d.%m %H:%M')}",  # Standard-Name
+            "name": session_name,  # Standard-Name
             "created_at": timestamp.isoformat(),
             "last_modified": timestamp.isoformat(),
             "model": current_model,
@@ -1905,11 +1906,13 @@ class LLMMessenger:
         session_data["messages"] = messages
         
         # Session-Datei speichern
-        session_file = os.path.join(self.sessions_dir, f"session_{self.current_session_id}.json")
+        # Dateiname mit Session-Name am Anfang (ohne Sonderzeichen/Leerzeichen)
+        session_name = self.sessions[self.current_session_id].get("name", "")
+        safe_name = "_".join(session_name.split()).replace("/", "_").replace("\\", "_")
+        session_file = os.path.join(self.sessions_dir, f"{safe_name}_session_{self.current_session_id}.json")
         try:
             with open(session_file, 'w', encoding='utf-8') as f:
                 json.dump(session_data, f, ensure_ascii=False, indent=2)
-            
             # Nur bei manuellem Speichern in Konsole ausgeben, nicht bei Auto-Save
             # self.console_print(f"💾 Session gespeichert: {self.current_session_id}", "success")
             return True
@@ -1964,23 +1967,14 @@ class LLMMessenger:
                                 if created_date:
                                     try:
                                         date_obj = datetime.fromisoformat(created_date)
-                                        session_data["name"] = f"Session {date_obj.strftime('%d.%m %H:%M')}"
+                                        session_data["name"] = f"Session {date_obj.strftime('%d.%m %H-%M')}"
                                     except:
                                         session_data["name"] = f"Session {session_id[-8:]}"
                                 else:
                                     session_data["name"] = f"Session {session_id[-8:]}"
-                                    
                             # Füge Standard-Farbe hinzu wenn nicht vorhanden (Migration bestehender Sessions) 
                             if "color" not in session_data:
                                 session_data["color"] = "#1f538d"  # Standard-Blau
-                                
-                            # Session mit Namen und Farbe neu speichern (Migration)
-                                temp_current_session = self.current_session_id
-                                self.current_session_id = session_id
-                                self.sessions[session_id] = session_data
-                                self.save_current_session()
-                                self.current_session_id = temp_current_session
-                            
                             self.sessions[session_id] = session_data
                 except Exception as e:
                     self.console_print(f"❌ Fehler beim Laden der Session {session_file}: {e}", "warning")
@@ -2162,14 +2156,24 @@ class LLMMessenger:
                 # Name in Session-Daten aktualisieren
                 self.sessions[session_id]["name"] = new_name
                 self.sessions[session_id]["last_modified"] = datetime.now().isoformat()
-                
-                # Session speichern
-                self.save_session_with_feedback()
-                
+                # Find old file
+                old_files = [f for f in os.listdir(self.sessions_dir) if f.endswith(f"_session_{session_id}.json")]
+                old_path = os.path.join(self.sessions_dir, old_files[0]) if old_files else None
+                # Save to new file with new name (name at beginning)
+                safe_name = "_".join(new_name.split()).replace("/", "_").replace("\\", "_")
+                new_path = os.path.join(self.sessions_dir, f"{safe_name}_session_{session_id}.json")
+                try:
+                    # Save updated session data to new file
+                    with open(new_path, 'w', encoding='utf-8') as f:
+                        json.dump(self.sessions[session_id], f, ensure_ascii=False, indent=2)
+                    # Delete old file if it exists and is not the same as new file
+                    if old_path and os.path.abspath(old_path) != os.path.abspath(new_path):
+                        os.remove(old_path)
+                except Exception as e:
+                    self.console_print(f"❌ Fehler beim Umbenennen/Speichern der Session-Datei: {e}", "warning")
                 # UI aktualisieren
                 self.update_session_list()
                 self.update_current_session_display()
-                
                 self.console_print(f"✅ Session umbenannt: '{new_name}'", "success")
                 dialog.destroy()
             elif not new_name:
