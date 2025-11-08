@@ -1793,6 +1793,290 @@ class LLMMessenger:
             
         except Exception as e:
             self.console_print(f"❌ Fehler beim Öffnen des Sessions-Ordners: {e}", "error")
+        title_text = f"🤖 Letzte Model-Eingabe | � {timestamp} | 🎯 {model}"
+        title_label = ctk.CTkLabel(main_frame, text=title_text, 
+                                  font=("Arial", 16, "bold"))
+        title_label.pack(pady=(10, 5))
+        
+        # Berechne Original-Tokens (gleiche Anzahl Nachrichten wie komprimierte Version)
+        max_entries = self.config.get("performance", {}).get("max_history_entries", 20)
+        original_tokens = 0
+        if hasattr(self, 'chat_history') and self.chat_history:
+            # Gleiche Historie-Begrenzung wie bei komprimierter Version anwenden
+            original_history_for_comparison = self.chat_history[-max_entries:] if len(self.chat_history) > max_entries else self.chat_history
+            original_tokens = estimate_tokens(original_history_for_comparison) + (estimate_tokens(message) if message else 0)
+        else:
+            original_tokens = total_tokens  # Fallback
+        
+        saved_tokens = original_tokens - total_tokens
+        saved_percentage = (saved_tokens / original_tokens * 100) if original_tokens > 0 else 0
+        
+        # Token-Vergleich Info-Frame
+        token_info_frame = ctk.CTkFrame(main_frame)
+        token_info_frame.pack(fill="x", padx=10, pady=(0, 10))
+        
+        token_info_text = f"� Original: {original_tokens:,} Tokens | 🗜️ Komprimiert: {total_tokens:,} Tokens | � Gespart: {saved_tokens:,} ({saved_percentage:.1f}%)"
+        token_info_label = ctk.CTkLabel(token_info_frame, text=token_info_text, 
+                                       font=("Arial", 12), text_color="lightgreen")
+        token_info_label.pack(pady=10)
+        
+        # Tab-ähnlicher Bereich mit zwei Spalten
+        content_frame = ctk.CTkFrame(main_frame)
+        content_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        
+        # Linke Spalte - Unkomprimiert (Original)
+        original_frame = ctk.CTkFrame(content_frame)
+        original_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        
+        original_title = ctk.CTkLabel(original_frame, text="📄 UNKOMPRIMIERTE VERSION (Original)", 
+                                     font=("Arial", 14, "bold"), text_color="#FF6B6B")
+        original_title.pack(pady=(10, 5))
+        
+        original_text_frame = ctk.CTkScrollableFrame(original_frame)
+        original_text_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        
+        # Rechte Spalte - Komprimiert
+        compressed_frame = ctk.CTkFrame(content_frame)
+        compressed_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
+        
+        compressed_title = ctk.CTkLabel(compressed_frame, text="🗜️ KOMPRIMIERTE VERSION (an Model gesendet)", 
+                                       font=("Arial", 14, "bold"), text_color="#51CF66")
+        compressed_title.pack(pady=(10, 5))
+        
+        compressed_text_frame = ctk.CTkScrollableFrame(compressed_frame)
+        compressed_text_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        
+        # Sichere history Überprüfung
+        if history is None:
+            history = []
+        
+        # Debug-Text formatieren
+        debug_text = f"🤖 LETZTE MODEL-EINGABE (KOMPRIMIERT)\n"
+        debug_text += f"{'='*60}\n\n"
+        debug_text += f"⏰ Zeitstempel: {timestamp}\n"
+        debug_text += f"🎯 Model: {model}\n"
+        debug_text += f"💬 Anzahl Nachrichten: {len(history)}\n"
+        debug_text += f"📊 Geschätzte Tokens: {total_tokens:,}\n"
+        debug_text += f"�️ Status: KOMPRIMIERTE VERSION (tatsächlich an Model gesendet)\n\n"
+        debug_text += f"{'='*60}\n"
+        debug_text += f"📜 KOMPRIMIERTE CHAT-HISTORIE:\n"
+        debug_text += f"{'='*60}\n\n"
+        
+        # BIAS-Status prüfen und anzeigen
+        has_bias = len(history) > 0 and history[0].get("role") == "system"
+        if has_bias:
+            bias_content = history[0].get("content", "")
+            debug_text += f"🎯 BIAS AKTIV:\n"
+            debug_text += f"{'─'*40}\n"
+            debug_text += f"{bias_content}\n\n"
+        
+        # Chat-Historie anzeigen (komprimierte Version)
+        for i, entry in enumerate(history):
+            role = entry.get("role", "unknown")
+            content = entry.get("content", "")
+            
+            if role == "system":
+                debug_text += f"🔧 SYSTEM MESSAGE {i+1}:\n"
+            elif role == "user":
+                debug_text += f"👤 USER MESSAGE {i+1}:\n"
+            elif role == "assistant":
+                debug_text += f"🤖 AI MESSAGE {i+1}:\n"
+            else:
+                debug_text += f"❓ {role.upper()} MESSAGE {i+1}:\n"
+            
+            debug_text += f"{'─'*40}\n"
+            debug_text += f"{content}\n\n"
+        
+        # Aktuelle Nachricht (falls vorhanden)
+        if message:
+            debug_text += f"{'='*60}\n"
+            debug_text += f"💬 AKTUELLE NACHRICHT:\n"
+            debug_text += f"{'='*60}\n"
+            debug_text += f"{message}\n\n"
+        
+        # Komprimierungs-Info
+        compression_enabled = self.config.get("performance", {}).get("compress_chat_history", True)
+        max_entries = self.config.get("performance", {}).get("max_history_entries", 20)
+        
+        debug_text += f"{'='*60}\n"
+        debug_text += f"🗜️ KOMPRIMIERUNGS-EINSTELLUNGEN:\n"
+        debug_text += f"{'='*60}\n"
+        debug_text += f"✅ Komprimierung aktiv: {'Ja' if compression_enabled else 'Nein'}\n"
+        debug_text += f"📝 Max. Verlaufs-Einträge: {max_entries}\n"
+        debug_text += f"🔧 Angewandte Optimierungen:\n"
+        debug_text += f"   • Whitespace normalisiert\n"
+        debug_text += f"   • Emoji entfernt (bei AI-Antworten)\n"
+        debug_text += f"   • Überflüssige Formatierung entfernt\n"
+        debug_text += f"   • Historie auf {max_entries} Nachrichten begrenzt\n\n"
+        
+        debug_text += f"💡 HINWEIS: Diese Version wurde tatsächlich an das Model gesendet.\n"
+        debug_text += f"   Für Vergleich mit Original siehe '🗜️ Komprimierte Eingabe anzeigen'."
+        
+        # Text-Widget für bessere Darstellung (komprimierte Version)
+        compressed_text_widget = ctk.CTkTextbox(
+            compressed_text_frame, 
+            font=("Consolas", 10),
+            wrap="word"
+        )
+        compressed_text_widget.pack(fill="both", expand=True, padx=5, pady=5)
+        compressed_text_widget.insert("1.0", debug_text)
+        compressed_text_widget.configure(state="disabled")  # Read-only
+        
+        # Original (unkomprimierte) Version für linke Spalte erstellen
+        if hasattr(self, 'chat_history') and self.chat_history:
+            # Gleiche Anzahl wie komprimierte Version verwenden
+            max_entries = self.config.get("performance", {}).get("max_history_entries", 20)
+            
+            # Original-Historie auf die gleiche Anzahl begrenzen wie komprimierte Version
+            original_history = self.chat_history[-max_entries:] if len(self.chat_history) > max_entries else self.chat_history
+            
+            original_debug_text = f"📄 ORIGINALE MODEL-EINGABE (UNKOMPRIMIERT)\n"
+            original_debug_text += f"{'='*60}\n\n"
+            original_debug_text += f"⏰ Zeitstempel: {timestamp}\n"
+            original_debug_text += f"🎯 Model: {model}\n"
+            original_debug_text += f"💬 Anzahl Nachrichten: {len(original_history)} (gleiche Begrenzung wie komprimiert)\n"
+            original_debug_text += f"📊 Geschätzte Tokens: {estimate_tokens(original_history) + (estimate_tokens(message) if message else 0):,}\n"
+            original_debug_text += f"🔄️ Status: ORIGINALE VERSION (mit gleicher Historie-Begrenzung)\n\n"
+            original_debug_text += f"{'='*60}\n"
+            original_debug_text += f"📜 ORIGINALE CHAT-HISTORIE (letzten {len(original_history)} Nachrichten):\n"
+            original_debug_text += f"{'='*60}\n\n"
+            
+            # Original Chat-Historie anzeigen (gleiche Anzahl wie komprimierte Version)
+            for i, entry in enumerate(original_history):
+                role = entry.get("role", "unknown")
+                content = entry.get("content", "")
+                
+                if role == "system":
+                    original_debug_text += f"🔧 SYSTEM MESSAGE {i+1}:\n"
+                elif role == "user":
+                    original_debug_text += f"👤 USER MESSAGE {i+1}:\n"
+                elif role == "assistant":
+                    original_debug_text += f"🤖 AI MESSAGE {i+1}:\n"
+                else:
+                    original_debug_text += f"❓ {role.upper()} MESSAGE {i+1}:\n"
+                
+                original_debug_text += f"{'─'*40}\n"
+                original_debug_text += f"{content}\n\n"
+            
+            # Aktuelle Nachricht (falls vorhanden)
+            if message:
+                original_debug_text += f"{'='*60}\n"
+                original_debug_text += f"💬 AKTUELLE NACHRICHT:\n"
+                original_debug_text += f"{'='*60}\n"
+                original_debug_text += f"{message}\n\n"
+            
+            original_debug_text += f"💡 HINWEIS: Dies zeigt die gleiche Anzahl Nachrichten wie die komprimierte Version (max. {max_entries})."
+        else:
+            original_debug_text = "❌ Keine originale Chat-Historie verfügbar."
+        
+        # Text-Widget für originale Version
+        original_text_widget = ctk.CTkTextbox(
+            original_text_frame, 
+            font=("Consolas", 10),
+            wrap="word"
+        )
+        original_text_widget.pack(fill="both", expand=True, padx=5, pady=5)
+        original_text_widget.insert("1.0", original_debug_text)
+        original_text_widget.configure(state="disabled")  # Read-only
+        
+        # Buttons
+        button_frame = ctk.CTkFrame(main_frame)
+        button_frame.pack(fill="x", padx=10, pady=(0, 10))
+        
+        # Schließen-Button
+        close_btn = ctk.CTkButton(
+            button_frame,
+            text="❌ Schließen",
+            command=debug_dialog.destroy,
+            width=100
+        )
+        close_btn.pack(side="right", padx=5)
+        
+        # Copy-Button für Zwischenablage mit Auswahl
+        def copy_to_clipboard():
+            # Menü für Auswahl anzeigen
+            copy_menu = tk.Menu(debug_dialog, tearoff=0)
+            
+            def copy_compressed():
+                debug_dialog.clipboard_clear()
+                debug_dialog.clipboard_append(debug_text)
+                self.console_print("📋 Komprimierte Model-Eingabe in Zwischenablage kopiert", "success")
+            
+            def copy_original():
+                debug_dialog.clipboard_clear()
+                debug_dialog.clipboard_append(original_debug_text)
+                self.console_print("📋 Originale Model-Eingabe in Zwischenablage kopiert", "success")
+            
+            def copy_both():
+                both_text = f"ORIGINALE VERSION:\n{original_debug_text}\n\n{'='*80}\n\nKOMPRIMIERTE VERSION:\n{debug_text}"
+                debug_dialog.clipboard_clear()
+                debug_dialog.clipboard_append(both_text)
+                self.console_print("📋 Beide Versionen in Zwischenablage kopiert", "success")
+            
+            copy_menu.add_command(label="🗜️ Komprimierte Version", command=copy_compressed)
+            copy_menu.add_command(label="📄 Originale Version", command=copy_original)
+            copy_menu.add_separator()
+            copy_menu.add_command(label="🔄 Beide Versionen", command=copy_both)
+            
+            # Menü an Mausposition anzeigen
+            try:
+                x = debug_dialog.winfo_pointerx()
+                y = debug_dialog.winfo_pointery()
+                copy_menu.post(x, y)
+            except:
+                copy_compressed()  # Fallback
+        
+        copy_btn = ctk.CTkButton(
+            button_frame,
+            text="📋 Kopieren",
+            command=copy_to_clipboard,
+            width=100
+        )
+        copy_btn.pack(side="right", padx=5)
+        
+        # JSON Export Button
+        def export_model_input_json():
+            try:
+                import json
+                from tkinter import filedialog
+                
+                filename = filedialog.asksaveasfilename(
+                    defaultextension=".json",
+                    filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+                    title="Model-Eingabe exportieren"
+                )
+                
+                if filename:
+                    export_data = {
+                        "timestamp": timestamp,
+                        "model": model,
+                        "estimated_tokens": total_tokens,
+                        "compression_settings": {
+                            "enabled": compression_enabled,
+                            "max_entries": max_entries
+                        },
+                        "compressed_history": history,
+                        "current_message": message,
+                        "note": "This is the actual compressed input sent to the model"
+                    }
+                    
+                    with open(filename, 'w', encoding='utf-8') as f:
+                        json.dump(export_data, f, indent=2, ensure_ascii=False)
+                    
+                    self.console_print(f"💾 Model-Eingabe exportiert: {filename}", "success")
+                    
+            except Exception as e:
+                self.console_print(f"❌ Export-Fehler: {e}", "error")
+        
+        export_btn = ctk.CTkButton(
+            button_frame,
+            text="💾 JSON Export",
+            command=export_model_input_json,
+            width=100,
+            fg_color="#2B8A3E",
+            hover_color="#37A24B"
+        )
+        export_btn.pack(side="right", padx=5)
 
     def clear_chat_history(self):
         """Löscht die Chat-Historie für einen frischen Kontext mit dem Model"""
