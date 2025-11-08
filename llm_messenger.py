@@ -6,17 +6,16 @@ Ein moderner Chat-Client mit Ollama-Integration für lokale AI-Modelle
 
 import tkinter as tk
 import customtkinter as ctk
-from tkinter import messagebox, scrolledtext, colorchooser, filedialog, Canvas
+from tkinter import messagebox, colorchooser, Canvas, filedialog
 import requests
 import json
-import copy
-import threading
 import time
 from datetime import datetime
 import ollama
 import yaml
 import os
-import os
+import threading
+import copy
 import math
 
 # Erscheinungsbild konfigurieren
@@ -920,7 +919,6 @@ class LLMMessenger:
         
         self.setup_ui()
         self.check_ollama_status()
-        self.setup_console_styling()
     
     def get_default_config(self):
         """Gibt die Standard-Konfiguration zurück"""
@@ -941,10 +939,6 @@ class LLMMessenger:
             "system_font": "Arial",          # System - Standard-Font
             "system_font_size": 10,          # System - Individuelle Größe
             
-            # Konsolen-Farben
-            "console_bg": "#000000",         # Konsolen-Hintergrund
-            "console_text": "#FFFFFF",       # Konsolen-Text
-            "console_font": "Consolas",      # Konsolen-Schriftart
             
             # UI-Optionen
             "show_system_messages": True     # System-Nachrichten im Chat anzeigen
@@ -1005,31 +999,6 @@ class LLMMessenger:
                     comment = "  # System-Nachrichten"
                 yaml_content += f"  {key}: \"{value}\"{comment}\n"
             
-            yaml_content += "\n# ========================================\n"
-            yaml_content += "# SCHRIFTARTEN & GRÖßEN\n"
-            yaml_content += "# ========================================\n"
-            
-            # Font-Konfiguration
-            font_config = {k: v for k, v in config_to_save.items() if 'font' in k and 'console' not in k}
-            yaml_content += "# Schriftarten und individuelle Größen\nfonts:\n"
-            
-            for key, value in font_config.items():
-                comment = ""
-                if "user" in key:
-                    comment = "  # Sie (Matrix-Style)"
-                elif "ai" in key:
-                    comment = "  # AI-Modell"  
-                elif "system" in key:
-                    comment = "  # System-Nachrichten"
-                
-                if isinstance(value, str):
-                    yaml_content += f"  {key}: \"{value}\"{comment}\n"
-                else:
-                    yaml_content += f"  {key}: {value}{comment}\n"
-            
-            yaml_content += "\n# ========================================\n"
-            yaml_content += "# KONSOLEN-EINSTELLUNGEN\n"
-            yaml_content += "# ========================================\n"
             
             # Konsolen-Konfiguration
             console_config = {k: v for k, v in config_to_save.items() if 'console' in k}
@@ -1056,136 +1025,13 @@ class LLMMessenger:
         """Setzt die Konfiguration auf Standardwerte zurück und speichert sie"""
         self.config = self.get_default_config()
         self.save_config()
-        print("🔄 Konfiguration auf Standardwerte zurückgesetzt und gespeichert")
     
-    def setup_console_styling(self):
-        """Richtet Konsolen-Styling mit ANSI-Codes ein"""
-        import os
-        # Aktiviere ANSI-Escape-Sequenzen für Windows
-        if os.name == 'nt':
-            import ctypes
-            kernel32 = ctypes.windll.kernel32
-            kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
     
     def console_print(self, text, style="normal"):
-        """Konsolen-Ausgabe mit konfigurierten Farben und Styling"""
-        try:
-            # Hole Konsolen-Konfiguration
-            bg_color = self.config.get("console_bg", "#000000")
-            text_color = self.config.get("console_text", "#FFFFFF")
-            
-            # Konvertiere Hex zu ANSI-Codes
-            def hex_to_ansi_fg(hex_color):
-                """Konvertiert Hex-Farbe zu ANSI-Vordergrund-Code"""
-                hex_color = hex_color.lstrip('#')
-                if len(hex_color) == 6:
-                    r = int(hex_color[0:2], 16)
-                    g = int(hex_color[2:4], 16)
-                    b = int(hex_color[4:6], 16)
-                    return f"\033[38;2;{r};{g};{b}m"
-                return "\033[37m"  # Weiß als Fallback
-            
-            def hex_to_ansi_bg(hex_color):
-                """Konvertiert Hex-Farbe zu ANSI-Hintergrund-Code"""
-                hex_color = hex_color.lstrip('#')
-                if len(hex_color) == 6:
-                    r = int(hex_color[0:2], 16)
-                    g = int(hex_color[2:4], 16)
-                    b = int(hex_color[4:6], 16)
-                    return f"\033[48;2;{r};{g};{b}m"
-                return "\033[40m"  # Schwarz als Fallback
-            
-            # ANSI-Codes für Styling
-            reset_code = "\033[0m"
-            fg_code = hex_to_ansi_fg(text_color)
-            bg_code = hex_to_ansi_bg(bg_color)
-            
-            # Style-spezifische Codes
-            style_codes = {
-                "normal": "",
-                "bold": "\033[1m",
-                "italic": "\033[3m", 
-                "underline": "\033[4m",
-                "success": "\033[1m\033[32m",  # Grün + Bold
-                "error": "\033[1m\033[31m",    # Rot + Bold
-                "warning": "\033[1m\033[33m",  # Gelb + Bold
-                "info": "\033[1m\033[36m"      # Cyan + Bold
-            }
-            
-            style_code = style_codes.get(style, "")
-            
-            # Formatierte Ausgabe mit konfigurierten Farben
-            if style in ["success", "error", "warning", "info"]:
-                # Für spezielle Styles verwende die eingebauten Farben
-                formatted_text = f"{style_code}{text}{reset_code}"
-            else:
-                # Für normale Ausgabe verwende konfigurierte Farben
-                formatted_text = f"{bg_code}{fg_code}{style_code}{text}{reset_code}"
-            
-            print(formatted_text)
-            
-        except Exception:
-            # Fallback auf normale print-Funktion
-            print(text)
+        """Einfache Konsolen-Ausgabe (ohne Styling)"""
+        print(text)
     
     
-    def ensure_download_dropdown_scrolling(self):
-        """Stellt sicher, dass das Download-Dropdown Mausrad-Scrolling hat"""
-        try:
-            def on_download_mousewheel(event):
-                try:
-                    current_values = list(self.available_dropdown.cget("values"))
-                    if not current_values:
-                        return "break"
-                        
-                    current_value = self.available_dropdown.get()
-                    if current_value in current_values:
-                        current_index = current_values.index(current_value)
-                    else:
-                        current_index = 0
-                    
-                    # Scroll-Richtung bestimmen
-                    if hasattr(event, 'delta'):
-                        delta = event.delta
-                    else:
-                        delta = -120 if event.num == 5 else 120
-                    
-                    if delta > 0:
-                        new_index = current_index - 1
-                    else:
-                        new_index = current_index + 1
-                    
-                    # Kategorie-Header überspringen
-                    while 0 <= new_index < len(current_values):
-                        if (current_values[new_index].startswith("--- ") and 
-                            current_values[new_index].endswith(" ---")):
-                            if delta > 0:
-                                new_index -= 1
-                            else:
-                                new_index += 1
-                        else:
-                            break
-                    
-                    # Setzen falls gültig
-                    if 0 <= new_index < len(current_values):
-                        self.available_dropdown.set(current_values[new_index])
-                        print(f"🎯 Download Dropdown scrolled to: {current_values[new_index]}")
-                            
-                    return "break"
-                            
-                except Exception as e:
-                    print(f"Download dropdown scroll error: {e}")
-                    return "break"
-            
-            # Events zusätzlich binden
-            self.available_dropdown.bind("<MouseWheel>", on_download_mousewheel)
-            self.available_dropdown.bind("<Button-4>", on_download_mousewheel)
-            self.available_dropdown.bind("<Button-5>", on_download_mousewheel)
-            
-            print("🔄 Download-Dropdown Mausrad-Scrolling aktiviert")
-            
-        except Exception as e:
-            print(f"Fehler beim Aktivieren des Download-Dropdown Scrollings: {e}")
 
     # ============================================
     # SESSION MANAGEMENT SYSTEM
@@ -1779,16 +1625,20 @@ class LLMMessenger:
         
         session_data["messages"] = messages
         
-        # Session-Datei speichern
-        # Dateiname mit Session-Name am Anfang (ohne Sonderzeichen/Leerzeichen)
-        session_name = self.sessions[self.current_session_id].get("name", "")
-        safe_name = "_".join(session_name.split()).replace("/", "_").replace("\\", "_")
-        session_file = os.path.join(self.sessions_dir, f"{safe_name}_session_{self.current_session_id}.json")
+        # Session-Datei speichern: Nur nach Session-ID benennen
+        session_file = os.path.join(self.sessions_dir, f"{self.current_session_id}.json")
+
+        # Lösche ggf. alte Dateien mit anderem Namen/Schema für diese Session-ID
+        for fname in os.listdir(self.sessions_dir):
+            if fname.endswith(f"_session_{self.current_session_id}.json") and fname != f"{self.current_session_id}.json":
+                try:
+                    os.remove(os.path.join(self.sessions_dir, fname))
+                except Exception:
+                    pass
+
         try:
             with open(session_file, 'w', encoding='utf-8') as f:
                 json.dump(session_data, f, ensure_ascii=False, indent=2)
-            # Nur bei manuellem Speichern in Konsole ausgeben, nicht bei Auto-Save
-            # self.console_print(f"💾 Session gespeichert: {self.current_session_id}", "success")
             return True
         except Exception as e:
             self.console_print(f"❌ Fehler beim Speichern der Session: {e}", "error")
@@ -1826,7 +1676,7 @@ class LLMMessenger:
         """Lädt alle Sessions aus dem Sessions-Ordner"""
         try:
             session_files = [f for f in os.listdir(self.sessions_dir)
-                             if "_session_" in f and f.endswith(".json")]
+                             if f.endswith(".json")]
             
             for session_file in session_files:
                 session_path = os.path.join(self.sessions_dir, session_file)
@@ -1943,7 +1793,8 @@ class LLMMessenger:
                 font=("Arial", 9),
                 anchor="w",
                 fg_color=btn_fg_color,
-                hover_color=btn_hover_color
+                hover_color=btn_hover_color,
+                text_color="#000000"  # Schrift schwarz
             )
             session_btn.pack(side="left", fill="both", expand=True, padx=(0, 5))
             
@@ -2223,13 +2074,13 @@ class LLMMessenger:
                 # Farbe in Session-Daten aktualisieren
                 self.sessions[session_id]["color"] = new_color
                 self.sessions[session_id]["last_modified"] = datetime.now().isoformat()
-                
                 # Session speichern
                 self.save_session_with_feedback()
-                
                 # UI aktualisieren
                 self.update_session_list()
-                
+                # Wenn die aktuelle Session geändert wurde, Anzeige sofort aktualisieren
+                if hasattr(self, 'current_session_id') and self.current_session_id == session_id:
+                    self.update_current_session_display()
                 self.console_print(f"🎨 Session-Farbe geändert: {new_color}", "success")
             color_dialog.destroy()
         
@@ -2368,7 +2219,12 @@ class LLMMessenger:
             word_count = self.calculate_session_word_count(session_data)
             word_display = f"{word_count}W" if word_count < 1000 else f"{word_count//1000:.1f}kW"
             
-            self.current_session_label.configure(text=f"📝 {session_name}\nID: {self.current_session_id[:8]}...\nErstellt: {date_str}\n📊 {word_display}")
+            session_color = session_data.get("color", "#4A4A4A")
+            self.current_session_label.configure(
+                text=f"📝 {session_name}\nID: {self.current_session_id[:8]}...\nErstellt: {date_str}\n📊 {word_display}",
+                fg_color=session_color,
+                text_color="#000000"
+            )
             
             # Model Info - handle None values correctly
             model_info = session_data.get("model", None)
@@ -2914,35 +2770,6 @@ class LLMMessenger:
                                                text_color="#FFFFFF", width=150)
         self.system_font_preview.pack(side="left", padx=10)
         
-        # Konsolen-Einstellungen Sektion - Direkt nach Schriftarten
-        console_frame = ctk.CTkFrame(config_scroll)
-        console_frame.pack(fill="x", pady=(10, 15))
-        
-        console_title = ctk.CTkLabel(console_frame, text="⚫ Konsole", font=("Arial", 16, "bold"))
-        console_title.pack(pady=(10, 5))
-        
-        # Konsolen-Farben - Horizontal Layout
-        console_main_frame = ctk.CTkFrame(console_frame)
-        console_main_frame.pack(fill="x", padx=15, pady=5)
-        
-        console_colors_frame = ctk.CTkFrame(console_main_frame)
-        console_colors_frame.pack(side="left", fill="x", expand=True, padx=5)
-        
-        self.console_bg_entry, self.console_bg_preview = self.setup_color_input_with_preview(
-            console_colors_frame, "Hintergrund:", "console_bg", "#000000")
-        self.console_text_entry, self.console_text_preview = self.setup_color_input_with_preview(
-            console_colors_frame, "Text:", "console_text", "#FFFFFF")
-        
-        # Konsolen-Font - Horizontal 
-        console_font_frame = ctk.CTkFrame(console_main_frame)
-        console_font_frame.pack(side="right", padx=5, pady=2)
-        ctk.CTkLabel(console_font_frame, text="Font:", width=40).pack(side="left", padx=2)
-        self.console_font_combo = ctk.CTkComboBox(console_font_frame,
-            values=["Consolas", "Courier New", "Lucida Console", "Monaco"], width=120)
-        self.console_font_combo.pack(side="left", padx=2)
-        self.console_font_combo.set(self.config["console_font"])
-        
-        # Mausrad-Scrolling für console_font_combo aktivieren
         
         # UI-Optionen Sektion
         ui_frame = ctk.CTkFrame(config_scroll)
@@ -3119,9 +2946,6 @@ class LLMMessenger:
             self.config["system_font"] = self.system_font_combo.get()
             self.config["system_font_size"] = int(self.system_font_size_slider.get())
             
-            self.config["console_bg"] = self.console_bg_entry.get() or "#000000"
-            self.config["console_text"] = self.console_text_entry.get() or "#FFFFFF"
-            self.config["console_font"] = self.console_font_combo.get()
             
             # UI-Optionen
             self.config["show_system_messages"] = self.show_system_messages_var.get()
@@ -3135,8 +2959,7 @@ class LLMMessenger:
             # Show success message
             self.add_to_chat("System", "✅ Konfiguration erfolgreich angewendet und gespeichert! Alle Chat-Bubbles wurden aktualisiert.")
             
-            # Teste Konsolen-Ausgabe mit neuen Einstellungen
-            self.test_console_output()
+            # Teste Konsolen-Ausgabe mit neuen Einstellungen (entfernt)
             
         except Exception as e:
             self.add_to_chat("System", f"❌ Fehler beim Anwenden der Konfiguration: {e}")
@@ -3159,23 +2982,6 @@ class LLMMessenger:
         except Exception as e:
             self.console_print(f"❌ Fehler beim Aktualisieren der Chat-Bubbles: {e}", "error")
     
-    def test_console_output(self):
-        """Testet die Konsolen-Ausgabe mit den aktuellen Einstellungen"""
-        try:
-            self.console_print("\n" + "="*50, "normal")
-            self.console_print("🎨 KONSOLEN-EINSTELLUNGEN TEST", "info")
-            self.console_print("="*50, "normal")
-            self.console_print(f"Hintergrund: {self.config['console_bg']}", "normal")
-            self.console_print(f"Textfarbe: {self.config['console_text']}", "normal")
-            self.console_print(f"Schriftart: {self.config['console_font']}", "normal")
-            self.console_print("✅ Erfolgsmeldung", "success")
-            self.console_print("⚠️ Warnungsmeldung", "warning") 
-            self.console_print("❌ Fehlermeldung", "error")
-            self.console_print("ℹ️ Informationsmeldung", "info")
-            self.console_print("📝 Normale Ausgabe", "normal")
-            self.console_print("="*50, "normal")
-        except Exception as e:
-            print(f"Konsolen-Test fehlgeschlagen: {e}")
     
     def reset_config(self):
         """Setzt die Konfiguration auf Standardwerte zurück"""
@@ -3211,12 +3017,7 @@ class LLMMessenger:
         self.update_ai_font_preview()
         self.update_system_font_preview()
         
-        # Konsole
-        self.console_bg_entry.delete(0, 'end')
-        self.console_bg_entry.insert(0, self.config["console_bg"])
-        self.console_text_entry.delete(0, 'end')
-        self.console_text_entry.insert(0, self.config["console_text"])
-        self.console_font_combo.set(self.config["console_font"])
+    # Konsole (entfernt)
         
         # UI-Optionen
         self.show_system_messages_var.set(self.config.get("show_system_messages", True))
@@ -3477,9 +3278,25 @@ class LLMMessenger:
         # Reset Historie-Index
         self.history_index = -1
         
+
+        # Prüfe, ob die Session vorher leer war (keine Nachrichten)
+        session_empty = False
+        if self.current_session_id and self.current_session_id in self.sessions:
+            session_data = self.sessions[self.current_session_id]
+            if not session_data.get("messages"):
+                session_empty = True
+
         # Nachricht anzeigen
         self.add_to_chat("Sie", message)
         self.message_entry.delete(0, 'end')
+
+        # Wenn Session vorher leer war: Session-Liste, Anzeige und Chat-Konsole sofort aktualisieren
+        if session_empty:
+            self.update_session_list()
+            self.update_current_session_display()
+            # Scrolle ans Ende der Chat-Konsole (falls vorhanden)
+            if hasattr(self, 'chat_display_frame') and hasattr(self.chat_display_frame, '_parent_canvas'):
+                self.chat_display_frame._parent_canvas.yview_moveto(1.0)
         
         # UI während Generation anpassen
         self.stop_btn.configure(state="normal")
