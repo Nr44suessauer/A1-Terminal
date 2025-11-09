@@ -238,6 +238,38 @@ class OllamaManager:
             print(f"Fehler beim Löschen: {e}")
             return False
     
+    def list_models(self):
+        """Alias für get_available_models"""
+        return self.get_available_models()
+    
+    def chat_stream(self, model_name, messages):
+        """Stream-Chat mit einem Modell - gibt nur Content-Chunks zurück"""
+        try:
+            response = self.client.chat(
+                model=model_name,
+                messages=messages,
+                stream=True
+            )
+            
+            for chunk in response:
+                if 'message' in chunk:
+                    content = chunk['message'].get('content', '')
+                    if content:
+                        yield content
+        except Exception as e:
+            print(f"Chat-Stream-Fehler: {e}")
+            yield ""
+    
+    def download_model_stream(self, model_name):
+        """Download eines Modells mit Progress-Stream"""
+        try:
+            response = self.client.pull(model_name, stream=True)
+            for chunk in response:
+                yield chunk
+        except Exception as e:
+            print(f"Download-Fehler: {e}")
+            yield {"status": "error", "error": str(e)}
+    
     def chat_with_model(self, model_name, message, chat_history=None):
         """Chat mit einem Modell mit Anti-Redundanz Konsolen-Ausgabe"""
         import sys

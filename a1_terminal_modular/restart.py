@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Restart Script für Ki-Whisperer
+Restart Script für A1-Terminal
 Startet die Anwendung nach einer kurzen Verzögerung neu
 """
 
@@ -12,7 +12,7 @@ import os
 def restart_application():
     """Startet die Anwendung neu"""
     try:
-        print("🔄 Starte Ki-Whisperer neu...")
+        print("🔄 Starte A1-Terminal neu...")
         time.sleep(0.5)  # Kurze Pause damit die alte Instanz schließen kann
         
         # Aktuelles Arbeitsverzeichnis
@@ -29,7 +29,7 @@ def restart_application():
             subprocess.Popen([python_exe, main_script], 
                            cwd=current_dir,
                            creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0)
-            print("✅ Ki-Whisperer wurde neu gestartet")
+            print("✅ A1-Terminal wurde neu gestartet")
         else:
             print(f"❌ Fehler: main.py nicht gefunden in {current_dir}")
             

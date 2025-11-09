@@ -26,12 +26,12 @@ class A1Terminal:
         self._session_just_loaded = False
         
         # YAML-Konfigurationsdatei ZUERST laden
-        self.config_file = "ki_whisperer_config.yaml"
+        self.config_file = "a1_terminal_config.yaml"
         self.config = self.load_config()
         
         # Jetzt root mit Config-Werten erstellen
         self.root = ctk.CTk()
-        self.root.title("LLM Messenger - Ollama Chat Client")
+        self.root.title("A1-Terminal - Ollama Chat Client")
         
         # Fenstergröße aus Config
         window_width = self.config.get('ui_window_width', 1400)
@@ -206,7 +206,7 @@ class A1Terminal:
             config_to_save = config or self.config
             
             # Erstelle YAML mit Kommentaren
-            yaml_content = """# Ki-Whisperer Konfigurationsdatei
+            yaml_content = """# A1-Terminal Konfigurationsdatei
 # Diese Datei wird automatisch erstellt und aktualisiert
 # Alle Änderungen werden beim Anwenden in der GUI gespeichert
 
@@ -422,50 +422,80 @@ class A1Terminal:
         )
         new_session_btn.pack(side="right", padx=(self.config.get("ui_padding_main", 10), 0))
         
-        # Scrollbare Session-Liste - kleinere Höhe für mehr Platz für andere Elemente
+        # Scrollbare Session-Liste - mehr Platz durch Entfernung des "Aktuelle Session" Bereichs
         self.session_listbox = ctk.CTkScrollableFrame(sessions_frame, 
                                                       height=self.config.get("ui_session_item_height", 60) * 2.5)
         self.session_listbox.pack(fill="both", expand=True, 
                                  padx=self.config.get("ui_padding_main", 10), 
                                  pady=self.config.get("ui_padding_content", 5))
         
-        # Aktuelle Session Info (mit blauer Umrandung)
-        self.current_frame = ctk.CTkFrame(self.session_panel, border_width=3, border_color="#00BFFF")
-        self.current_frame.pack(fill="x", 
-                               padx=self.config.get("ui_padding_content", 5), 
-                               pady=self.config.get("ui_padding_content", 5))
-
-        current_label = ctk.CTkLabel(self.current_frame, text="📌 Aktuelle Session:", 
-                                    font=("Arial", self.config.get("ui_model_title_size", 12), "bold"))
-        current_label.pack(anchor="w", padx=self.config.get("ui_padding_main", 10), 
-                          pady=(self.config.get("ui_padding_main", 10), self.config.get("ui_padding_content", 5)))
-
-        # Session Details
-        self.current_session_label = ctk.CTkLabel(
-            self.current_frame, 
-            text="Keine Session aktiv",
-            font=("Arial", self.config.get("ui_session_font_size", 11)),
-            anchor="w"
+        # Session Actions unter der Session-Liste
+        actions_frame = ctk.CTkFrame(sessions_frame)
+        actions_frame.pack(fill="x", padx=self.config.get("ui_padding_main", 10), 
+                          pady=self.config.get("ui_padding_content", 5))
+        
+        delete_session_btn = ctk.CTkButton(
+            actions_frame,
+            text="🗑️ Session löschen",
+            command=self.delete_current_session,
+            height=self.config.get("ui_session_button_height", 25),
+            font=("Arial", self.config.get("ui_session_button_font", 9)),
+            fg_color="#C92A2A",
+            hover_color="#E03131"
         )
-        self.current_session_label.pack(anchor="w", padx=self.config.get("ui_padding_main", 10), pady=2)
-
-        # Model Info
-        self.current_model_label = ctk.CTkLabel(
-            self.current_frame,
-            text="Model: Nicht ausgewählt", 
-            font=("Arial", self.config.get("ui_session_font_size", 11)),
-            anchor="w"
+        delete_session_btn.pack(side="left", fill="x", expand=True, padx=(0, 2))
+        
+        cleanup_btn = ctk.CTkButton(
+            actions_frame,
+            text="🧹 Alle löschen",
+            command=self.delete_all_sessions,
+            height=self.config.get("ui_session_button_height", 25),
+            font=("Arial", self.config.get("ui_session_button_font", 9)),
+            fg_color="#8B0000",
+            hover_color="#A52A2A"
         )
-        self.current_model_label.pack(anchor="w", padx=self.config.get("ui_padding_main", 10), pady=2)
+        cleanup_btn.pack(side="left", fill="x", expand=True, padx=(2, 0))
+        
+        # Debug-Buttons unter der Session-Liste
+        debug_frame = ctk.CTkFrame(sessions_frame)
+        debug_frame.pack(fill="x", padx=self.config.get("ui_padding_main", 10), 
+                        pady=(self.config.get("ui_padding_content", 5), self.config.get("ui_padding_content", 5)))
+        
+        debug_btn = ctk.CTkButton(
+            debug_frame,
+            text="🔍 Debug Sessions",
+            command=self.show_session_debug,
+            height=self.config.get("ui_debug_button_height", 30),
+            font=("Arial", self.config.get("ui_debug_button_font", 9)),
+            fg_color="#4A4A4A",
+            hover_color="#5A5A5A"
+        )
+        debug_btn.pack(side="left", fill="x", expand=True, padx=(0, 2))
+        
+        folder_btn = ctk.CTkButton(
+            debug_frame,
+            text="📁 Sessions-Ordner",
+            command=self.open_sessions_folder,
+            height=self.config.get("ui_debug_button_height", 30),
+            font=("Arial", self.config.get("ui_debug_button_font", 9)),
+            fg_color="#2D5A87",
+            hover_color="#3D6A97"
+        )
+        folder_btn.pack(side="left", fill="x", expand=True, padx=(2, 0))
+        
+        # BIAS Input Frame
+        bias_frame = ctk.CTkFrame(self.session_panel, border_width=2, border_color="#4A4A4A")
+        bias_frame.pack(fill="x", 
+                       padx=self.config.get("ui_padding_content", 5), 
+                       pady=self.config.get("ui_padding_content", 5))
 
-        # BIAS Input
-        bias_label = ctk.CTkLabel(self.current_frame, text="🎯 Session BIAS:", 
+        bias_label = ctk.CTkLabel(bias_frame, text="🎯 Session BIAS:", 
                                  font=("Arial", self.config.get("ui_session_font_size", 11), "bold"))
         bias_label.pack(anchor="w", padx=self.config.get("ui_padding_main", 10), 
                        pady=(self.config.get("ui_padding_main", 10), 2))
 
         self.session_bias_entry = ctk.CTkTextbox(
-            self.current_frame,
+            bias_frame,
             height=self.config.get("ui_bias_height", 60),
             font=("Arial", self.config.get("ui_bias_font_size", 9))
         )
@@ -478,87 +508,13 @@ class A1Terminal:
 
         # BIAS Info Label für aktuellen Status
         self.bias_info_label = ctk.CTkLabel(
-            self.current_frame,
-            text="💭 BIAS nicht gesetzt",
+            bias_frame,
+            text="� BIAS nicht gesetzt (Auto-Save aktiv)",
             font=("Arial", self.config.get("ui_model_label_size", 9)),
             text_color="gray"
         )
-        self.bias_info_label.pack(anchor="w", padx=self.config.get("ui_padding_main", 10), pady=2)
-
-        # BIAS speichern Button (jetzt optional, da Auto-Save aktiv ist)
-        save_bias_btn = ctk.CTkButton(
-            self.current_frame,
-            text="💾 BIAS manuell speichern",
-            command=self.save_session_bias,
-            height=self.config.get("ui_session_button_height", 25),
-            font=("Arial", self.config.get("ui_session_button_font", 9))
-        )
-        save_bias_btn.pack(fill="x", padx=self.config.get("ui_padding_main", 10), 
-                          pady=self.config.get("ui_padding_content", 5))
-
-        # Session Actions
-        actions_frame = ctk.CTkFrame(self.current_frame)
-        actions_frame.pack(fill="x", padx=self.config.get("ui_padding_main", 10), 
-                          pady=self.config.get("ui_padding_content", 5))
-        
-        # Manueller Session-Speichern Button entfernt - Auto-Save ist aktiv
-        
-        delete_session_btn = ctk.CTkButton(
-            actions_frame,
-            text="🗑️ Session",
-            command=self.delete_current_session,
-            height=self.config.get("ui_session_button_height", 25),
-            font=("Arial", self.config.get("ui_session_button_font", 9)),
-            fg_color="#C92A2A",
-            hover_color="#E03131"
-        )
-        delete_session_btn.pack(side="left", fill="x", expand=True, padx=(0, 2))
-        
-        # Alle Sessions löschen Button - direkt nebeneinander
-        cleanup_btn = ctk.CTkButton(
-            actions_frame,
-            text="🧹 Alle",
-            command=self.delete_all_sessions,
-            height=self.config.get("ui_session_button_height", 25),
-            font=("Arial", self.config.get("ui_session_button_font", 9)),
-            fg_color="#8B0000",
-            hover_color="#A52A2A"
-        )
-        cleanup_btn.pack(side="left", fill="x", expand=True, padx=(2, 0))
-        
-        # Debug Sessions Button - mit Beschriftung für bessere Usability
-        debug_frame = ctk.CTkFrame(self.session_panel)
-        debug_frame.pack(fill="x", padx=self.config.get("ui_padding_content", 5), 
-                        pady=self.config.get("ui_padding_content", 5))
-        
-        # Buttons gleichmäßig in Reihen anordnen
-        # Erste Reihe: Debug Sessions und Sessions-Ordner
-        debug_row1 = ctk.CTkFrame(debug_frame)
-        debug_row1.pack(fill="x", pady=2)
-        
-        debug_btn = ctk.CTkButton(
-            debug_row1,
-            text="🔍 Debug Sessions",
-            command=self.show_session_debug,
-            height=self.config.get("ui_debug_button_height", 30),
-            font=("Arial", self.config.get("ui_debug_button_font", 9)),
-            fg_color="#4A4A4A",
-            hover_color="#5A5A5A"
-        )
-        debug_btn.pack(side="left", fill="x", expand=True, padx=(2, 1))
-        
-        folder_btn = ctk.CTkButton(
-            debug_row1,
-            text="📁 Sessions-Ordner",
-            command=self.open_sessions_folder,
-            height=self.config.get("ui_debug_button_height", 30),
-            font=("Arial", self.config.get("ui_debug_button_font", 9)),
-            fg_color="#2D5A87",
-            hover_color="#3D6A97"
-        )
-        folder_btn.pack(side="left", fill="x", expand=True, padx=(1, 2))
-        
-        # (Button '🗑️ Chat-Historie' entfernt)
+        self.bias_info_label.pack(anchor="w", padx=self.config.get("ui_padding_main", 10), 
+                                 pady=(2, self.config.get("ui_padding_main", 10)))
 
     def initialize_session_management(self):
         """Initialisiert das Session Management System"""
@@ -1635,48 +1591,20 @@ class A1Terminal:
                 pass
     
     def update_current_session_display(self):
-        """Aktualisiert die Anzeige der aktuellen Session"""
-        if not hasattr(self, 'current_session_label'):
+        """Aktualisiert die Umrandung des Chat-Verlaufs mit der Farbe der aktiven Session"""
+        if not hasattr(self, 'chat_display_frame'):
             return
             
         if self.current_session_id and self.current_session_id in self.sessions:
             session_data = self.sessions[self.current_session_id]
-            session_name = session_data.get("name", f"Session {self.current_session_id[-8:]}")
-            created_date = session_data.get("created_at", "Unbekannt")
-            
-            if created_date != "Unbekannt":
-                try:
-                    date_obj = datetime.fromisoformat(created_date)
-                    date_str = date_obj.strftime("%d.%m.%Y %H:%M")
-                except:
-                    date_str = created_date[:16]
-            else:
-                date_str = created_date
-            
-            # Wort-Anzahl für aktuelle Session berechnen
-            word_count = self.calculate_session_word_count(session_data)
-            word_display = f"{word_count}W" if word_count < 1000 else f"{word_count//1000:.1f}kW"
-            
+            # Holen der Session-Farbe
             session_color = session_data.get("color", "#4A4A4A")
-            self.current_session_label.configure(
-                text=f"📝 {session_name}\nID: {self.current_session_id[:8]}...\nErstellt: {date_str}\n📊 {word_display}",
-                fg_color=session_color,
-                text_color="#000000"
-            )
             
-            # Model Info - handle None values correctly
-            model_info = session_data.get("model", None)
-            if model_info is None or model_info == "":
-                model_display = "Nicht ausgewählt"
-            else:
-                model_display = model_info
-            self.current_model_label.configure(text=f"Model: {model_display}")
+            # Umrandung des Chat-Verlaufs mit Session-Farbe aktualisieren
+            self.chat_display_frame.configure(border_color=session_color)
         else:
-            # Keine aktive Session
-            self.current_session_label.configure(
-                text="🚫 Keine Session aktiv\n\n💡 Klicken Sie auf '➕ Neue Session'\num zu beginnen"
-            )
-            self.current_model_label.configure(text="Model: Nicht ausgewählt")
+            # Keine aktive Session - Standard-Grau verwenden
+            self.chat_display_frame.configure(border_color="#4A4A4A")
 
     def save_session_bias(self):
         """Speichert den Session-BIAS"""
@@ -1788,6 +1716,10 @@ class A1Terminal:
                 self.console_print(f"❌ Fehler beim Speichern der Session-Liste: {e}", "error")
             
             self.console_print(f"🗑️ Session gelöscht: {deleted_session_id}", "warning")
+            
+            # UI sofort aktualisieren
+            self.update_session_list()
+            self.update_current_session_display()
             
             # Prüfe ob noch andere Sessions vorhanden sind
             if self.sessions:
@@ -1994,10 +1926,12 @@ class A1Terminal:
         self.chat_frame = ctk.CTkFrame(self.chat_tab)
         self.chat_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
-        # Chat-Verlauf mit Scrollable Frame
+        # Chat-Verlauf mit Scrollable Frame und farbiger Umrandung für aktive Session
         self.chat_display_frame = ctk.CTkScrollableFrame(
             self.chat_frame,
-            label_text="Chat-Verlauf"
+            label_text="Chat-Verlauf",
+            border_width=3,
+            border_color="#4A4A4A"  # Standard-Grau, wird bei Session-Wechsel aktualisiert
         )
         self.chat_display_frame.pack(fill="both", expand=True, padx=10, pady=(10, 5))
         
@@ -2502,8 +2436,8 @@ class A1Terminal:
             
             # Speichere aktuelle Session
             if hasattr(self, 'current_session_id') and self.current_session_id:
-                if hasattr(self, 'save_session'):
-                    self.save_session()
+                if hasattr(self, 'save_session_with_feedback'):
+                    self.save_session_with_feedback()
             
             # Pfad zum restart.py Script
             restart_script = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "restart.py")
@@ -2861,7 +2795,11 @@ class A1Terminal:
         
         # UI während Generation anpassen
         self.stop_btn.configure(state="normal")
-        self.send_btn.configure(state="disabled")
+        self.send_btn.configure(state="disabled", text="⏳ Generiert...")
+        
+        # Eingabefeld visuell anpassen (leicht transparent)
+        if hasattr(self, 'message_entry'):
+            self.message_entry.configure(state="disabled")
         
         # Antwort abrufen
         def get_response():
@@ -2986,7 +2924,9 @@ class A1Terminal:
         if hasattr(self, 'stop_btn'):
             self.stop_btn.configure(state="normal")
         if hasattr(self, 'send_btn'):
-            self.send_btn.configure(state="disabled")
+            self.send_btn.configure(state="disabled", text="⏳ Generiert...")
+        if hasattr(self, 'message_entry'):
+            self.message_entry.configure(state="disabled")
         
         # Antwort abrufen
         def get_response():
@@ -3066,7 +3006,9 @@ class A1Terminal:
                     if "status" in progress:
                         status = progress["status"]
                         if "total" in progress and "completed" in progress:
-                            percent = (progress["completed"] / progress["total"]) * 100
+                            total = float(progress["total"]) if progress["total"] else 1
+                            completed = float(progress["completed"]) if progress["completed"] else 0
+                            percent = (completed / total) * 100
                             self.console_print(f"📥 {status}: {percent:.1f}%", "info")
                         else:
                             self.console_print(f"📥 {status}", "info")
@@ -3074,7 +3016,7 @@ class A1Terminal:
                 if not self.download_stopped:
                     self.console_print(f"✅ Download abgeschlossen: {model_name}", "success")
                     # Modell-Liste aktualisieren
-                    self.root.after(0, self.update_model_list)
+                    self.root.after(0, self.refresh_models)
                     
             except Exception as e:
                 self.console_print(f"❌ Download-Fehler: {str(e)}", "error")
@@ -3235,13 +3177,23 @@ class A1Terminal:
     def reset_generation_ui(self):
         """Setzt die UI nach Generation zurück"""
         self.stop_btn.configure(state="disabled", text="Stop")
-        self.send_btn.configure(state="normal")
+        self.send_btn.configure(state="normal", text="Senden")
+        
+        # Eingabefeld wieder aktivieren
+        if hasattr(self, 'message_entry'):
+            self.message_entry.configure(state="normal")
+        
         self.current_generation_thread = None
     
     def reset_download_ui(self):
         """Setzt die UI nach Download zurück"""
         self.stop_btn.configure(state="disabled", text="Stop")
-        self.send_btn.configure(state="normal")
+        self.send_btn.configure(state="normal", text="Senden")
+        
+        # Eingabefeld wieder aktivieren
+        if hasattr(self, 'message_entry'):
+            self.message_entry.configure(state="normal")
+        
         self.current_download_thread = None
     
     def format_ai_response(self, content):
@@ -3424,6 +3376,35 @@ class A1Terminal:
         self.current_thinking_bubble = bubble
         return bubble
     
+    def update_progressive_response(self, chunk):
+        """Aktualisiert die progressive Antwort mit neuem Chunk"""
+        if not hasattr(self, 'current_response_text'):
+            self.current_response_text = ""
+        
+        self.current_response_text += chunk
+        
+        # Wenn noch kein Response-Widget existiert, erstelle eines
+        if not hasattr(self, 'response_message_widget') or self.response_message_widget is None:
+            # Entferne Thinking-Indikator wenn vorhanden
+            if hasattr(self, 'current_thinking_bubble') and self.current_thinking_bubble:
+                self.remove_last_message()
+            
+            # Erstelle neues Widget für die Antwort
+            self.response_message_widget = self.add_to_chat(
+                f"🤖 {self.current_model}", 
+                self.current_response_text
+            )
+        else:
+            # Aktualisiere bestehendes Widget
+            try:
+                # Finde das Text-Label im Widget und aktualisiere es
+                for child in self.response_message_widget.winfo_children():
+                    if isinstance(child, ctk.CTkLabel):
+                        child.configure(text=self.current_response_text)
+                        break
+            except:
+                pass
+    
     def remove_last_message(self):
         """Entfernt die letzte Nachricht (Thinking-Indikator)"""
         # Stoppe die ASCII-Animation
@@ -3575,7 +3556,7 @@ class A1Terminal:
         info_label.pack(side="right", padx=10, pady=5)
         
         # Beispiel-Content
-        markdown_example = """# Ki-whisperer Chat Session
+        markdown_example = """# A1-Terminal Chat Session
 
 **Session-ID:** `20251107_143025`
 **Exportiert am:** 07.11.2025 um 14:30:25
@@ -3616,7 +3597,7 @@ Kannst du ein einfaches Beispiel geben?
 ---
 
 *Session-ID: 20251107_143025*
-*Generiert von Ki-whisperer LLM Chat Client*"""
+*Generiert von A1-Terminal LLM Chat Client*"""
 
         # Scrollbarer Text
         text_frame = ctk.CTkScrollableFrame(parent)
@@ -3812,7 +3793,7 @@ Kannst du ein einfaches Beispiel geben?
             session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # Header mit Session-ID
-        lines.append("# Ki-whisperer Chat Session")
+        lines.append("# A1-Terminal Chat Session")
         lines.append("")
         lines.append(f"**Session-ID:** `{session_id}`")
         lines.append(f"**Exportiert am:** {datetime.now().strftime('%d.%m.%Y um %H:%M:%S')}")
@@ -3863,7 +3844,7 @@ Kannst du ein einfaches Beispiel geben?
         lines.append("---")
         lines.append("")
         lines.append(f"*Session-ID: {session_id}*")
-        lines.append("*Generiert von Ki-whisperer LLM Chat Client*")
+        lines.append("*Generiert von A1-Terminal LLM Chat Client*")
         
         return '\n'.join(lines)
     

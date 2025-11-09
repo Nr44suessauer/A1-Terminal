@@ -153,11 +153,13 @@ def setup_modern_ui(app):
     # ==================== CHAT TAB ====================
     app.chat_tab_frame = ctk.CTkFrame(app.tab_content, fg_color="transparent")
     
-    # Chat Display (Scrollable)
+    # Chat Display (Scrollable) mit farbiger Umrandung für aktive Session
     app.chat_display_frame = ctk.CTkScrollableFrame(
         app.chat_tab_frame,
         fg_color="#0f0f0f",
-        corner_radius=8
+        corner_radius=8,
+        border_width=3,
+        border_color="#4A4A4A"  # Standard-Grau, wird bei Session-Wechsel aktualisiert
     )
     app.chat_display_frame.pack(fill="both", expand=True, padx=5, pady=5)
     

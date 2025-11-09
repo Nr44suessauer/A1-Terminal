@@ -60,13 +60,13 @@ class SessionCard(ctk.CTkFrame):
         session_label.pack(side="left", fill="x", expand=True)
         
         # Delete Button
-        if self.on_delete:
+        if self.on_delete is not None:
             delete_btn = ctk.CTkButton(
                 header_frame,
                 text="🗑️",
                 width=30,
                 height=25,
-                command=lambda: self.on_delete(self.session_id),
+                command=lambda: self.on_delete(self.session_id) if self.on_delete else None,
                 fg_color="transparent",
                 hover_color="#722F37",
                 border_width=1,
@@ -135,10 +135,10 @@ class SessionCard(ctk.CTkFrame):
             bias_label.pack(anchor="w", pady=(5, 0))
         
         # Click-Handler für Selection
-        if self.on_select:
-            self.bind("<Button-1>", lambda e: self.on_select(self.session_id))
+        if self.on_select is not None:
+            self.bind("<Button-1>", lambda e: self.on_select(self.session_id) if self.on_select else None)
             for child in self.winfo_children():
-                child.bind("<Button-1>", lambda e: self.on_select(self.session_id))
+                child.bind("<Button-1>", lambda e: self.on_select(self.session_id) if self.on_select else None)
     
     def _on_enter(self, event):
         """Hover-Effekt beim Eintreten"""

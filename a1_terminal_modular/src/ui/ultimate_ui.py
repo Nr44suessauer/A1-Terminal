@@ -40,7 +40,7 @@ def setup_ultimate_ui(app):
     
     title = ctk.CTkLabel(
         title_frame,
-        text="🤖 Ki-Whisperer",
+        text="🤖 A1-Terminal",
         font=("Arial", 20, "bold"),
         text_color="#00BFFF"
     )
@@ -196,7 +196,7 @@ def setup_ultimate_ui(app):
     # ============== RIGHT PANEL: Chat Area ==============
     right_panel = ctk.CTkFrame(h_pane, fg_color="#1a1a1a", corner_radius=10)
     
-    # Chat Header
+    # Chat Header (nur mit Action-Buttons)
     chat_header = ctk.CTkFrame(right_panel, fg_color="#2b2b2b", corner_radius=8, height=60)
     chat_header.pack(fill="x", padx=10, pady=10)
     chat_header.pack_propagate(False)
@@ -204,18 +204,9 @@ def setup_ultimate_ui(app):
     header_content = ctk.CTkFrame(chat_header, fg_color="transparent")
     header_content.pack(fill="both", expand=True, padx=15, pady=10)
     
-    # Current Session Info
-    app.current_session_label = ctk.CTkLabel(
-        header_content,
-        text="Keine Session aktiv",
-        font=("Arial", 13, "bold"),
-        anchor="w"
-    )
-    app.current_session_label.pack(side="left", fill="x", expand=True)
-    
-    # Session Actions
+    # Session Actions (jetzt linksbündig, da kein Session-Label mehr vorhanden)
     session_actions = ctk.CTkFrame(header_content, fg_color="transparent")
-    session_actions.pack(side="right")
+    session_actions.pack(side="left")
     
     clear_btn = ctk.CTkButton(
         session_actions,
@@ -245,11 +236,13 @@ def setup_ultimate_ui(app):
     )
     bias_btn.pack(side="left", padx=2)
     
-    # Chat Display
+    # Chat Display mit farbiger Umrandung für aktive Session
     app.chat_display_frame = ctk.CTkScrollableFrame(
         right_panel,
         fg_color="#0f0f0f",
-        corner_radius=8
+        corner_radius=8,
+        border_width=3,
+        border_color="#4A4A4A"  # Standard-Grau, wird bei Session-Wechsel aktualisiert
     )
     app.chat_display_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
     
