@@ -2,8 +2,8 @@
   "session_id": "20251110_001437_802",
   "name": "Session 10.11 00-14",
   "created_at": "2025-11-10T00:14:37.802758",
-  "last_modified": "2025-11-10T00:15:21.228487",
-  "model": "llama2:7b",
+  "last_modified": "2025-11-10T00:35:41.538462",
+  "model": "llama3.2:latest",
   "bias": "write as cowboy",
   "messages": [
     {

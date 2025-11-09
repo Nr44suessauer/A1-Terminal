@@ -1,10 +1,6 @@
-# Ki-Whisperer - A1 Terminal   - Laden Sie Ollama für Ihr Betriebssystem herunter
-
-   - Installieren und starten Sie Ollama
+# A1-Terminal
 
 **Professioneller Chat-Client für lokale AI-Modelle via Ollama**
-
-2. **Python 3.8+ installiert**
 
 Version 2.0 - Modulare Architektur
 
@@ -50,7 +46,7 @@ Das Projekt ist jetzt **modular** aufgebaut:
 
    ```bash
 
-**Ki-Whisperer** ist ein moderner, modularer Chat-Client für lokale AI-Modelle, der über die Ollama-API kommuniziert. Die Anwendung bietet eine intuitive GUI mit umfangreichen Anpassungsmöglichkeiten, Session-Management und Echtzeit-Streaming-Funktionalität.   cd "C:\Users\marcn\Documents\Ki-whisperer"
+**A1-Terminal** ist ein moderner, modularer Chat-Client für lokale AI-Modelle, der über die Ollama-API kommuniziert. Die Anwendung bietet eine intuitive GUI mit umfangreichen Anpassungsmöglichkeiten, Session-Management und Echtzeit-Streaming-Funktionalität.   cd "C:\Users\marcn\Documents\Ki-whisperer"
 
    ```
 
@@ -122,7 +118,7 @@ Das Projekt ist jetzt **modular** aufgebaut:
 
 ```   - Wählen Sie das gewünschte Modell aus dem Dropdown-Menü
 
-Ki-Whisperer/
+A1-Terminal/
 
 │3. **Chatten**
 
@@ -160,7 +156,7 @@ Ki-Whisperer/
 
 │- **Auswählen**: Wechseln Sie zwischen verschiedenen Modellen
 
-├── ki_whisperer_config.yaml      # Zentrale Konfiguration
+├── a1_terminal_config.yaml      # Zentrale Konfiguration
 
 └── OLD_VERSION/                  # Archiv (monolithische Version)### Chat-Features
 

@@ -18,6 +18,7 @@ from src.ui.session_card import SessionCard
 from src.ui.model_selector import ModelSelector
 from src.ui.enhanced_chat_bubble import EnhancedChatBubble
 from src.ui.ultimate_ui import setup_ultimate_ui
+from src.ui.model_info_dropdown import ModelInfoDropdown
 from src.core.ollama_manager import OllamaManager
 
 class A1Terminal:
@@ -298,26 +299,61 @@ class A1Terminal:
                                           font=("Arial", self.config.get("ui_model_label_size", 9), "bold"))
         self.installed_label.pack(anchor="w", padx=self.config.get("ui_padding_content", 5), pady=2)
         
-        # Model Dropdown und Buttons in einer Zeile
+        # Model Dropdown und Info Panel in einer Zeile
         model_controls_frame = ctk.CTkFrame(installed_frame)
         model_controls_frame.pack(fill="x", padx=self.config.get("ui_padding_content", 5), pady=2)
         
-        self.model_var = tk.StringVar()
-        self.model_dropdown = ctk.CTkComboBox(
-            model_controls_frame, 
-            variable=self.model_var,
-            values=["Keine Modelle verfügbar"],
-            command=self.on_model_select,
-            height=self.config.get("ui_model_dropdown_height", 32),
-            font=("Arial", self.config.get("ui_model_font_size", 11))
+        # Linke Seite: Dropdown
+        left_frame = ctk.CTkFrame(model_controls_frame, fg_color="transparent")
+        left_frame.pack(side="left", fill="x", expand=True, padx=(2, 5))
+        
+        # Verwende das neue ModelInfoDropdown
+        self.model_dropdown = ModelInfoDropdown(
+            left_frame,
+            models_dict={},
+            on_select=self.on_model_select_new
         )
-        self.model_dropdown.pack(side="left", fill="x", expand=True, padx=(2, 5), pady=2)
+        self.model_dropdown.pack(fill="x", pady=2)
+        
+        # Rechte Seite: Model Info Panel
+        self.model_info_panel = ctk.CTkFrame(
+            model_controls_frame,
+            fg_color=("#e8e8e8", "#2b2b2b"),
+            corner_radius=8,
+            width=250
+        )
+        self.model_info_panel.pack(side="right", fill="both", padx=(0, 5), pady=2)
+        self.model_info_panel.pack_propagate(False)
+        
+        # Info Panel Titel
+        info_title = ctk.CTkLabel(
+            self.model_info_panel,
+            text="ℹ️ Modell-Info",
+            font=("Arial", 10, "bold"),
+            anchor="w"
+        )
+        info_title.pack(anchor="w", padx=10, pady=(8, 5))
+        
+        # Info Text
+        self.model_info_text = ctk.CTkTextbox(
+            self.model_info_panel,
+            font=("Arial", 9),
+            wrap="word",
+            activate_scrollbars=False
+        )
+        self.model_info_text.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        self.model_info_text.insert("1.0", "Wählen Sie ein Modell aus,\num Details anzuzeigen.")
+        self.model_info_text.configure(state="disabled")
         
         # Mausrad-Scrolling für model_dropdown aktivieren
         
+        # Buttons unter dem Info Panel
+        buttons_frame = ctk.CTkFrame(installed_frame, fg_color="transparent")
+        buttons_frame.pack(fill="x", padx=self.config.get("ui_padding_content", 5), pady=(5, 2))
+        
         # Delete Button 
         self.delete_btn = ctk.CTkButton(
-            model_controls_frame,
+            buttons_frame,
             text="🗑️ Löschen",
             command=self.delete_selected_model,
             fg_color="red",
@@ -329,7 +365,7 @@ class A1Terminal:
         
         # Refresh Button  
         self.refresh_btn = ctk.CTkButton(
-            model_controls_frame,
+            buttons_frame,
             text="🔄 Aktualisieren",
             command=self.refresh_models,
             width=130,
@@ -350,13 +386,11 @@ class A1Terminal:
         download_controls_frame = ctk.CTkFrame(download_frame)
         download_controls_frame.pack(fill="x", padx=self.config.get("ui_padding_content", 5), pady=2)
         
-        # Kategorisiertes Dropdown für verfügbare Modelle
-        self.available_var = tk.StringVar()
-        self.available_dropdown = CategorizedComboBox(
-            download_controls_frame, 
-            variable=self.available_var,
-            categories_dict={},
-            font=("Arial", self.config.get("ui_model_font_size", 9))
+        # Neues ModelInfoDropdown für verfügbare Modelle zum Download
+        self.available_dropdown = ModelInfoDropdown(
+            download_controls_frame,
+            models_dict={},
+            on_select=None  # Kein Auto-Download bei Auswahl
         )
         self.available_dropdown.pack(side="left", fill="x", expand=True, padx=(2, 5), pady=2)
         
@@ -827,7 +861,7 @@ class A1Terminal:
         if session_data.get("model"):
             self.current_model = session_data["model"]
             if hasattr(self, 'model_dropdown'):
-                self.model_dropdown.set(self.current_model)
+                self.model_dropdown.set_selected(self.current_model)
         
         # BIAS setzen
         self.current_session_bias = session_data.get("bias", "")
@@ -1801,12 +1835,12 @@ class A1Terminal:
             if hasattr(self, 'session_bias_entry'):
                 self.session_bias_entry.delete("1.0", "end")
                 
-                # Model zurücksetzen
-                self.current_model = None
-                if hasattr(self, 'model_dropdown'):
-                    self.model_dropdown.set("Keine Modelle verfügbar")
+            # Model zurücksetzen
+            self.current_model = None
+            if hasattr(self, 'model_dropdown'):
+                self.model_dropdown.update_models({})
                 
-                self.console_print("🔄 Alle Sessions gelöscht - Chat bereit für neue Session", "info")
+            self.console_print("🔄 Alle Sessions gelöscht - Chat bereit für neue Session", "info")
 
     def delete_all_sessions(self):
         """Löscht alle Sessions nach Bestätigung"""
@@ -1865,7 +1899,7 @@ class A1Terminal:
             # Model zurücksetzen
             self.current_model = None
             if hasattr(self, 'model_dropdown'):
-                self.model_dropdown.set("Keine Modelle verfügbar")
+                self.model_dropdown.update_models({})
             
             # Ergebnis anzeigen
             if failed_count == 0:
@@ -2592,24 +2626,34 @@ class A1Terminal:
         threading.Thread(target=check, daemon=True).start()
     
     def load_available_models(self):
-        """Lädt alle verfügbaren Ollama-Modelle und kategorisiert sie"""
+        """Lädt alle verfügbaren Ollama-Modelle"""
         def load():
             self.add_to_chat("System", "🔄 Lade aktuelle Modell-Liste von Ollama...")
             all_models = self.ollama.get_all_ollama_models()
             
             if all_models:
-                categories = self.ollama.categorize_models_by_size(all_models)
-                self.root.after(0, lambda: self.available_dropdown.set_categories(categories))
-                self.root.after(0, lambda: self.available_dropdown.set("🔍 Wählen Sie eine Kategorie oder Modell..."))
+                # Konvertiere zu Model-Info-Dict mit Größen-Informationen
+                models_dict = {}
+                for model_name in all_models:
+                    # Extrahiere Größen-Info aus dem Namen (z.B. llama3:8b)
+                    size_info = ""
+                    if ":" in model_name:
+                        param_size = model_name.split(":")[-1]
+                        if "b" in param_size.lower():
+                            size_info = param_size.upper()
+                    
+                    models_dict[model_name] = {
+                        "size": f"~{size_info.replace('B', ' Mrd Parameter')}" if size_info else "Verfügbar",
+                        "type": "LLM",
+                        "parameters": size_info
+                    }
                 
-                # Mausrad-Scrolling nach dem Setzen der Kategorien nochmals sicherstellen
-                
-                model_count = sum(len(models) for models in categories.values())
+                self.root.after(0, lambda: self.available_dropdown.update_models(models_dict))
+                model_count = len(models_dict)
                 self.root.after(0, lambda: self.add_to_chat("System", 
-                    f"✅ {model_count} Modelle in {len([c for c in categories.values() if c])} Kategorien geladen"))
+                    f"✅ {model_count} Modelle zum Download verfügbar"))
             else:
-                empty_categories = {"❌ Keine Modelle verfügbar": []}
-                self.root.after(0, lambda: self.available_dropdown.set_categories(empty_categories))
+                self.root.after(0, lambda: self.available_dropdown.update_models({}))
                 self.root.after(0, lambda: self.add_to_chat("System", "❌ Keine Modelle verfügbar"))
         
         threading.Thread(target=load, daemon=True).start()
@@ -2620,27 +2664,225 @@ class A1Terminal:
             # Installierte Modelle aktualisieren
             models = self.ollama.get_available_models()
             if models:
-                self.root.after(0, lambda: self.model_dropdown.configure(values=models))
+                # Erstelle Model-Info-Dict für installierte Modelle
+                models_dict = {}
+                for model in models:
+                    # Versuche Größe und Info zu bekommen
+                    models_dict[model] = {
+                        "size": "Installiert",
+                        "type": "LLM",
+                        "parameters": ""
+                    }
+                
+                self.root.after(0, lambda: self.model_dropdown.update_models(models_dict))
                 if not self.current_model or self.current_model not in models:
-                    self.root.after(0, lambda: self.model_dropdown.set(models[0]))
+                    self.root.after(0, lambda: self.model_dropdown.set_selected(models[0]))
                     self.current_model = models[0]
             else:
-                self.root.after(0, lambda: self.model_dropdown.configure(values=["Keine Modelle verfügbar"]))
+                self.root.after(0, lambda: self.model_dropdown.update_models({}))
                 self.current_model = None
             
-            # Verfügbare Modelle aktualisieren (kategorisiert)
+            # Verfügbare Modelle aktualisieren
             all_models = self.ollama.get_all_ollama_models()
             if all_models:
-                categories = self.ollama.categorize_models_by_size(all_models)
-                self.root.after(0, lambda: self.available_dropdown.set_categories(categories))
-                if self.available_var.get() in ["Lade Modell-Liste...", ""]:
-                    self.root.after(0, lambda: self.available_dropdown.set("🔍 Wählen Sie eine Kategorie oder Modell..."))
+                # Konvertiere zu Model-Info-Dict
+                download_models_dict = {}
+                for model_name in all_models:
+                    size_info = ""
+                    if ":" in model_name:
+                        param_size = model_name.split(":")[-1]
+                        if "b" in param_size.lower():
+                            size_info = param_size.upper()
+                    
+                    download_models_dict[model_name] = {
+                        "size": f"~{size_info.replace('B', ' Mrd Parameter')}" if size_info else "Verfügbar",
+                        "type": "LLM",
+                        "parameters": size_info
+                    }
+                
+                self.root.after(0, lambda: self.available_dropdown.update_models(download_models_dict))
         
         threading.Thread(target=update, daemon=True).start()
     
+    def on_model_select_new(self, choice):
+        """Behandelt Modell-Auswahl (neue Methode für ModelInfoDropdown)"""
+        self.on_model_select(choice)
+        self.update_model_info_panel(choice)
+    
+    def update_model_info_panel(self, model_name):
+        """Aktualisiert das Modell-Info-Panel mit Details zum ausgewählten Modell"""
+        if not model_name:
+            self.model_info_text.configure(state="normal")
+            self.model_info_text.delete("1.0", "end")
+            self.model_info_text.insert("1.0", "Wählen Sie ein Modell aus,\num Details anzuzeigen.")
+            self.model_info_text.configure(state="disabled")
+            return
+        
+        # Modell-Informationen zusammenstellen
+        def fetch_info():
+            try:
+                info_text = f"📦 Modell: {model_name}\n\n"
+                api_success = False
+                
+                # Versuche Infos über Ollama API zu bekommen
+                try:
+                    import ollama
+                    result = ollama.show(model_name)
+                    
+                    if result and isinstance(result, dict):
+                        api_success = True
+                        
+                        # Parameter Count aus details
+                        if 'details' in result:
+                            details = result['details']
+                            
+                            if 'parameter_size' in details:
+                                param_size = details['parameter_size']
+                                info_text += f"🔢 Parameter: {param_size}\n"
+                            
+                            if 'quantization_level' in details:
+                                quant = details['quantization_level']
+                                info_text += f"⚙️ Quantisierung: {quant}\n"
+                            
+                            if 'family' in details:
+                                family = details['family']
+                                info_text += f"👪 Familie: {family.title()}\n"
+                            
+                            if 'format' in details:
+                                format_info = details['format']
+                                info_text += f"📄 Format: {format_info.upper()}\n"
+                            
+                            if 'families' in details:
+                                families = details['families']
+                                if families:
+                                    info_text += f"🏷️ Tags: {', '.join(families[:3])}\n"
+                        
+                        # Size info
+                        if 'size' in result:
+                            size_mb = result['size'] / (1024 * 1024)
+                            if size_mb >= 1024:
+                                size_gb = size_mb / 1024
+                                info_text += f"💾 Größe: {size_gb:.2f} GB\n"
+                            else:
+                                info_text += f"� Größe: {size_mb:.0f} MB\n"
+                        
+                        info_text += "\n"
+                        
+                        # Template info
+                        if 'template' in result and result['template']:
+                            info_text += "📝 Template: ✅ Konfiguriert\n"
+                        
+                        # Modified date
+                        if 'modified_at' in result:
+                            modified = result['modified_at'].split('T')[0] if 'T' in result['modified_at'] else result['modified_at']
+                            info_text += f"🗓️ Letzte Änderung:\n   {modified}\n\n"
+                        
+                        # Empfohlen für (basierend auf Familie und Tags)
+                        recommendations = []
+                        model_lower = model_name.lower()
+                        
+                        if 'code' in model_lower or 'coder' in model_lower:
+                            recommendations.append("💻 Code-Generierung")
+                            recommendations.append("🔧 Programmierung")
+                        elif 'llava' in model_lower or 'vision' in model_lower:
+                            recommendations.append("👁️ Bildanalyse")
+                            recommendations.append("🖼️ Vision Tasks")
+                        elif 'math' in model_lower or 'wizard' in model_lower:
+                            recommendations.append("🧮 Mathematik")
+                            recommendations.append("📐 Berechnungen")
+                        elif 'sql' in model_lower:
+                            recommendations.append("🗄️ SQL-Queries")
+                            recommendations.append("📊 Datenbank")
+                        elif 'med' in model_lower or 'bio' in model_lower:
+                            recommendations.append("🏥 Medizin")
+                            recommendations.append("🧬 Biologie")
+                        else:
+                            # Standard Chat-Modelle
+                            if 'b' in model_lower:
+                                param_num = ''.join(filter(str.isdigit, model_lower.split('b')[0].split(':')[-1]))
+                                if param_num:
+                                    param_val = int(param_num)
+                                    if param_val <= 3:
+                                        recommendations.append("💬 Schnelle Antworten")
+                                        recommendations.append("📱 Mobile Geräte")
+                                    elif param_val <= 8:
+                                        recommendations.append("💬 Chat & Dialog")
+                                        recommendations.append("✍️ Texterstellung")
+                                    else:
+                                        recommendations.append("🎯 Komplexe Aufgaben")
+                                        recommendations.append("📚 Analyse & Recherche")
+                        
+                        if recommendations:
+                            info_text += "✨ Empfohlen für:\n"
+                            for rec in recommendations[:3]:  # Max 3 Empfehlungen
+                                info_text += f"   {rec}\n"
+                    
+                except Exception as e:
+                    print(f"Ollama API Fehler: {e}")
+                    api_success = False
+                
+                # Fallback wenn ollama.show nicht funktioniert
+                if not api_success:
+                    info_text += "ℹ️ Typ: LLM\n"
+                    
+                    # Parse Parameter aus Modellname
+                    if ':' in model_name:
+                        param_info = model_name.split(':')[-1]
+                        if 'b' in param_info.lower():
+                            param_clean = param_info.upper().replace('B', ' Milliarden')
+                            info_text += f"🔢 Parameter: ~{param_clean}\n"
+                    
+                    # Modell-Familie aus Namen ableiten
+                    model_base = model_name.split(':')[0].lower()
+                    if 'llama' in model_base:
+                        info_text += "👪 Familie: Llama\n"
+                    elif 'mistral' in model_base:
+                        info_text += "👪 Familie: Mistral\n"
+                    elif 'gemma' in model_base:
+                        info_text += "👪 Familie: Gemma\n"
+                    elif 'phi' in model_base:
+                        info_text += "👪 Familie: Phi\n"
+                    elif 'codellama' in model_base or 'code' in model_base:
+                        info_text += "👪 Familie: CodeLlama\n"
+                    
+                    info_text += "\n"
+                    
+                    # Empfehlungen auch im Fallback
+                    recommendations = []
+                    if 'code' in model_base:
+                        recommendations = ["💻 Code-Generierung", "🔧 Programmierung"]
+                    elif 'llava' in model_base:
+                        recommendations = ["👁️ Bildanalyse", "🖼️ Vision Tasks"]
+                    elif 'math' in model_base:
+                        recommendations = ["🧮 Mathematik", "📐 Berechnungen"]
+                    else:
+                        recommendations = ["💬 Chat & Dialog", "✍️ Texterstellung"]
+                    
+                    if recommendations:
+                        info_text += "✨ Empfohlen für:\n"
+                        for rec in recommendations[:3]:
+                            info_text += f"   {rec}\n"
+                
+                # Update UI in main thread
+                self.root.after(0, lambda: self._update_info_text(info_text))
+                
+            except Exception as e:
+                error_text = f"📦 Modell: {model_name}\n\n❌ Fehler beim Laden der Details:\n{str(e)}"
+                self.root.after(0, lambda: self._update_info_text(error_text))
+        
+        # Lade Infos in separatem Thread
+        threading.Thread(target=fetch_info, daemon=True).start()
+    
+    def _update_info_text(self, text):
+        """Hilfsmethode zum Aktualisieren des Info-Textfelds (muss im Main-Thread laufen)"""
+        self.model_info_text.configure(state="normal")
+        self.model_info_text.delete("1.0", "end")
+        self.model_info_text.insert("1.0", text)
+        self.model_info_text.configure(state="disabled")
+    
     def on_model_select(self, choice):
         """Behandelt Modell-Auswahl"""
-        if choice != "Keine Modelle verfügbar":
+        if choice and choice != "Keine Modelle verfügbar":
             self.current_model = choice
             
             # Chat-Historie nur bei neuen/leeren Sessions zurücksetzen
@@ -2680,14 +2922,10 @@ class A1Terminal:
     
     def download_selected_model(self):
         """Lädt das ausgewählte Modell aus dem Dropdown herunter"""
-        selected_model = self.available_dropdown.get_selected_model()
+        selected_model = self.available_dropdown.get_selected()
         
         if not selected_model:
-            messagebox.showwarning("Warnung", "Bitte wählen Sie ein Modell zum Download aus!\n\nHinweis: Kategorie-Header (--- Text ---) sind nicht herunterladbar.")
-            return
-        
-        if selected_model in ["🔍 Wählen Sie eine Kategorie oder Modell...", "Keine Modelle verfügbar", "Lade Modell-Liste..."]:
-            messagebox.showwarning("Warnung", "Bitte wählen Sie ein gültiges Modell zum Download aus!")
+            messagebox.showwarning("Warnung", "Bitte wählen Sie ein Modell zum Download aus!")
             return
         
         # Prüfen ob das Modell bereits installiert ist
