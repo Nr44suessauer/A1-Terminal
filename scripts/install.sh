@@ -96,7 +96,7 @@ echo "[2/4] pip aktualisieren..."
 echo "========================================================================"
 echo ""
 
-$PYTHON_CMD -m pip install --upgrade pip --user || {
+$PYTHON_CMD -m pip install --upgrade pip --break-system-packages || {
     echo "[WARNUNG] pip-Update fehlgeschlagen, fahre dennoch fort..."
 }
 
@@ -111,9 +111,10 @@ echo "[3/4] Python-Pakete installieren..."
 echo "========================================================================"
 echo ""
 
-# Wechsle in das Projektverzeichnis
+# Wechsle in das Projektverzeichnis (eine Ebene über dem scripts-Ordner)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd "$SCRIPT_DIR/a1_terminal_modular"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_DIR/a1_terminal_modular"
 
 if [ ! -f "requirements.txt" ]; then
     echo "[FEHLER] requirements.txt nicht gefunden!"
@@ -124,18 +125,18 @@ fi
 echo "Installiere Python-Pakete aus requirements.txt..."
 echo ""
 
-$PYTHON_CMD -m pip install -r requirements.txt --user || {
+$PYTHON_CMD -m pip install -r requirements.txt --break-system-packages || {
     echo "[FEHLER] Installation der Python-Pakete fehlgeschlagen!"
     echo ""
     echo "Versuche einzelne Installation..."
     echo ""
     
     # Fallback: Einzelne Pakete installieren
-    $PYTHON_CMD -m pip install "customtkinter>=5.2.0" --user
-    $PYTHON_CMD -m pip install "ollama>=0.1.0" --user
-    $PYTHON_CMD -m pip install "PyYAML>=6.0" --user
-    $PYTHON_CMD -m pip install "requests>=2.31.0" --user
-    $PYTHON_CMD -m pip install "pyperclip>=1.8.2" --user
+    $PYTHON_CMD -m pip install "customtkinter>=5.2.0" --break-system-packages
+    $PYTHON_CMD -m pip install "ollama>=0.1.0" --break-system-packages
+    $PYTHON_CMD -m pip install "PyYAML>=6.0" --break-system-packages
+    $PYTHON_CMD -m pip install "requests>=2.31.0" --break-system-packages
+    $PYTHON_CMD -m pip install "pyperclip>=1.8.2" --break-system-packages
 }
 
 echo ""
@@ -253,7 +254,7 @@ fi
 
 echo "[INFO] Erstelle Start-Skript..."
 
-cat > "$SCRIPT_DIR/a1_terminal_modular/start.sh" << 'EOF'
+cat > "$PROJECT_DIR/a1_terminal_modular/start.sh" << 'EOF'
 #!/bin/bash
 
 # A1-Terminal Start-Skript für Linux/macOS
@@ -274,7 +275,7 @@ fi
 python3 main.py
 EOF
 
-chmod +x "$SCRIPT_DIR/a1_terminal_modular/start.sh"
+chmod +x "$PROJECT_DIR/a1_terminal_modular/start.sh"
 
 echo "[OK] Start-Skript erstellt: a1_terminal_modular/start.sh"
 echo ""

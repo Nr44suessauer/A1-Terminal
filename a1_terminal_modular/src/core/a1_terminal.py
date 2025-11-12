@@ -8,6 +8,7 @@ import yaml
 import json
 import copy
 import threading
+import platform
 from datetime import datetime
 
 from src.ui.color_wheel import ColorWheel
@@ -27,6 +28,9 @@ class A1Terminal:
         self._session_just_loaded = False
         self._model_just_changed = False
         
+        # Detect platform for UI adjustments
+        self.platform = platform.system()
+        
         # Load YAML configuration file FIRST
         self.config_file = "a1_terminal_config.yaml"
         self.config = self.load_config()
@@ -35,14 +39,26 @@ class A1Terminal:
         self.root = ctk.CTk()
         self.root.title("A1-Terminal - Ollama Chat Client")
         
-        # Window size from config
-        window_width = self.config.get('ui_window_width', 1400)
-        window_height = self.config.get('ui_window_height', 900)
+        # Platform-specific window sizing
+        if self.platform == "Linux":
+            # Linux/Ubuntu: Slightly larger default sizes for better visibility
+            window_width = self.config.get('ui_window_width', 1500)
+            window_height = self.config.get('ui_window_height', 950)
+        else:
+            window_width = self.config.get('ui_window_width', 1400)
+            window_height = self.config.get('ui_window_height', 900)
+            
         self.root.geometry(f"{window_width}x{window_height}")
         
         # Make window resizable and set minimum size
         self.root.resizable(True, True)
-        self.root.minsize(900, 500)
+        
+        # Platform-specific minimum sizes
+        if self.platform == "Linux":
+            self.root.minsize(1000, 600)  # Larger minimum for Linux
+        else:
+            self.root.minsize(900, 500)
+            
         self.root.maxsize(2560, 1440)
         
         self.ollama = OllamaManager()
@@ -85,7 +101,21 @@ class A1Terminal:
         self.check_ollama_status()
     
     def get_default_config(self):
-        """Returns the default configuration"""
+        """Returns the default configuration with platform-specific adjustments"""
+        # Platform detection
+        is_linux = platform.system() == "Linux"
+        
+        # Scaling factors
+        font_scale = 1.1 if is_linux else 1.0
+        ui_scale = 1.15 if is_linux else 1.0
+        
+        # Helper functions
+        def scaled_font(size):
+            return int(size * font_scale)
+        
+        def scaled_ui(size):
+            return int(size * ui_scale)
+        
         return {
             # ========== BUBBLE COLORS ==========
             "user_bg_color": "#003300",      # You - Background
@@ -95,61 +125,61 @@ class A1Terminal:
             "system_bg_color": "#722F37",    # System - Background
             "system_text_color": "white",    # System - Text
             
-            # ========== FONTS ==========
+            # ========== FONTS (platform-adjusted) ==========
             "user_font": "Courier New",      # You - Matrix font
-            "user_font_size": 11,            # You - Individual size
+            "user_font_size": scaled_font(11),     # You - Individual size
             "ai_font": "Consolas",           # AI - Code font
-            "ai_font_size": 11,              # AI - Individual size
+            "ai_font_size": scaled_font(11),       # AI - Individual size
             "system_font": "Arial",          # System - Standard font
-            "system_font_size": 10,          # System - Individual size
+            "system_font_size": scaled_font(10),   # System - Individual size
             
-            # ========== UI LAYOUT ==========
-            "ui_session_panel_width": 350,   # Width of session panel (px)
-            "ui_window_width": 1400,         # Window width at startup (px)
-            "ui_window_height": 900,         # Window height at startup (px)
-            "ui_padding_main": 10,           # Main outer padding (px)
-            "ui_padding_content": 5,         # Content padding (px)
+            # ========== UI LAYOUT (platform-adjusted) ==========
+            "ui_session_panel_width": scaled_ui(350),   # Width of session panel (px)
+            "ui_window_width": 1500 if is_linux else 1400,
+            "ui_window_height": 950 if is_linux else 900,
+            "ui_padding_main": scaled_ui(10),    # Main outer padding (px)
+            "ui_padding_content": scaled_ui(5),  # Content padding (px)
             
-            # ========== CHAT DISPLAY ==========
-            "ui_chat_bubble_corner_radius": 10,    # Bubble corner radius
-            "ui_chat_bubble_padding_x": 15,        # Bubble horizontal padding
-            "ui_chat_bubble_padding_y": 10,        # Bubble vertical padding
-            "ui_chat_spacing": 10,                 # Spacing between bubbles
+            # ========== CHAT DISPLAY (platform-adjusted) ==========
+            "ui_chat_bubble_corner_radius": scaled_ui(10),    # Bubble corner radius
+            "ui_chat_bubble_padding_x": scaled_ui(15),        # Bubble horizontal padding
+            "ui_chat_bubble_padding_y": scaled_ui(10),        # Bubble vertical padding
+            "ui_chat_spacing": scaled_ui(10),                 # Spacing between bubbles
             "ui_chat_max_width_ratio": 0.8,        # Max bubble width (80% of container)
             
-            # ========== INPUT AREA ==========
-            "ui_input_height": 40,           # Height of input field (px)
-            "ui_input_font_size": 12,        # Font size in input
-            "ui_button_width": 100,          # Width of buttons (px)
-            "ui_button_height": 40,          # Height of buttons (px)
+            # ========== INPUT AREA (platform-adjusted) ==========
+            "ui_input_height": scaled_ui(40),           # Height of input field (px)
+            "ui_input_font_size": scaled_font(12),      # Font size in input
+            "ui_button_width": scaled_ui(100),          # Width of buttons (px)
+            "ui_button_height": scaled_ui(40),          # Height of buttons (px)
             
-            # ========== SESSION LIST ==========
-            "ui_session_item_height": 60,    # Height of session item (px)
-            "ui_session_font_size": 11,      # Font size in session list
-            "ui_session_spacing": 5,         # Spacing between sessions
+            # ========== SESSION LIST (platform-adjusted) ==========
+            "ui_session_item_height": scaled_ui(60),    # Height of session item (px)
+            "ui_session_font_size": scaled_font(11),    # Font size in session list
+            "ui_session_spacing": scaled_ui(5),         # Spacing between sessions
             
-            # ========== MODEL SELECTOR ==========
-            "ui_model_dropdown_height": 32,  # Height of model dropdown (px)
-            "ui_model_button_size": 35,      # Size of model buttons (px)
-            "ui_model_font_size": 11,        # Font size in model selector
-            "ui_model_title_size": 12,       # Font size model title
-            "ui_model_label_size": 9,        # Font size model labels
+            # ========== MODEL SELECTOR (platform-adjusted) ==========
+            "ui_model_dropdown_height": scaled_ui(32),  # Height of model dropdown (px)
+            "ui_model_button_size": scaled_ui(35),      # Size of model buttons (px)
+            "ui_model_font_size": scaled_font(11),      # Font size in model selector
+            "ui_model_title_size": scaled_font(12),     # Font size model title
+            "ui_model_label_size": scaled_font(9),      # Font size model labels
             
-            # ========== SESSION BUTTONS ==========
-            "ui_session_button_width": 140,  # Width session buttons
-            "ui_session_button_height": 25,  # Height session buttons
-            "ui_session_button_font": 9,     # Font size session buttons
+            # ========== SESSION BUTTONS (platform-adjusted) ==========
+            "ui_session_button_width": scaled_ui(140),  # Width session buttons
+            "ui_session_button_height": scaled_ui(25),  # Height session buttons
+            "ui_session_button_font": scaled_font(9),   # Font size session buttons
             
-            # ========== BIAS TEXTBOX ==========
-            "ui_bias_height": 60,            # Height BIAS input field
-            "ui_bias_font_size": 9,          # Font size BIAS
+            # ========== BIAS TEXTBOX (platform-adjusted) ==========
+            "ui_bias_height": scaled_ui(60),            # Height BIAS input field
+            "ui_bias_font_size": scaled_font(9),        # Font size BIAS
             
-            # ========== DEBUG BUTTONS ==========
-            "ui_debug_button_height": 30,    # Height debug buttons
-            "ui_debug_button_font": 9,       # Font size debug buttons
+            # ========== DEBUG BUTTONS (platform-adjusted) ==========
+            "ui_debug_button_height": scaled_ui(30),    # Height debug buttons
+            "ui_debug_button_font": scaled_font(9),     # Font size debug buttons
             
-            # ========== TABS ==========
-            "ui_tab_font_size": 13,          # Font size of tab names
+            # ========== TABS (platform-adjusted) ==========
+            "ui_tab_font_size": scaled_font(13),         # Font size of tab names
             "ui_tab_height": 40,             # Height of tab bar (px)
             
             # ========== CONFIG TAB ==========
@@ -734,7 +764,13 @@ class A1Terminal:
         # Zeige Debug-Info in einem Dialog
         debug_dialog = ctk.CTkToplevel(self.root)
         debug_dialog.title("🔍 Session Debug Information")
-        debug_dialog.geometry("600x500")
+        
+        # Platform-specific dialog sizing
+        if self.platform == "Linux":
+            debug_dialog.geometry("700x600")
+        else:
+            debug_dialog.geometry("600x500")
+            
         debug_dialog.transient(self.root)
         debug_dialog.grab_set()
         
@@ -1248,18 +1284,24 @@ class A1Terminal:
         session_data = self.sessions[session_id]
         current_name = session_data.get("name", f"Session {session_id[-8:]}")
         
+        # Platform-specific dialog sizing
+        if self.platform == "Linux":
+            dialog_width, dialog_height = 480, 240
+        else:
+            dialog_width, dialog_height = 400, 200
+        
         # Dialog-Fenster create
         dialog = ctk.CTkToplevel(self.root)
         dialog.title("Rename session")
-        dialog.geometry("400x200")
+        dialog.geometry(f"{dialog_width}x{dialog_height}")
         dialog.transient(self.root)
         dialog.grab_set()
         
         # Dialog zentrieren
         dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() // 2) - (400 // 2)
-        y = (dialog.winfo_screenheight() // 2) - (200 // 2)
-        dialog.geometry(f"400x200+{x}+{y}")
+        x = (dialog.winfo_screenwidth() // 2) - (dialog_width // 2)
+        y = (dialog.winfo_screenheight() // 2) - (dialog_height // 2)
+        dialog.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
         
         # Dialog content
         title_label = ctk.CTkLabel(dialog, text="Rename session", 
@@ -1346,19 +1388,25 @@ class A1Terminal:
         session_name = session_data.get("name", f"Session {session_id[-8:]}")
         current_color = session_data.get("color", "#4A4A4A")
         
+        # Platform-specific dialog sizing
+        if self.platform == "Linux":
+            dialog_width, dialog_height = 800, 700
+        else:
+            dialog_width, dialog_height = 700, 600
+        
         # Color-Picker Dialog
         color_dialog = ctk.CTkToplevel(self.root)
         color_dialog.title(f"Farbe select: {session_name}")
-        color_dialog.geometry("700x600")  # Größer gemacht
+        color_dialog.geometry(f"{dialog_width}x{dialog_height}")
         color_dialog.transient(self.root)
         color_dialog.grab_set()
         color_dialog.resizable(False, False)  # Feste Größe
         
         # Dialog zentrieren
         color_dialog.update_idletasks()
-        x = (color_dialog.winfo_screenwidth() // 2) - (700 // 2)
-        y = (color_dialog.winfo_screenheight() // 2) - (600 // 2)
-        color_dialog.geometry(f"700x600+{x}+{y}")
+        x = (color_dialog.winfo_screenwidth() // 2) - (dialog_width // 2)
+        y = (color_dialog.winfo_screenheight() // 2) - (dialog_height // 2)
+        color_dialog.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
         
         # Dialog content directly on dialog (without additional frames)
         title_label = ctk.CTkLabel(color_dialog, text=f"Color for '{session_name}' select", 
@@ -1528,17 +1576,25 @@ class A1Terminal:
         current_name = session_data.get("name", f"Session {session_id[-8:]}")
         current_color = session_data.get("color", "#1f538d")
         
+        # Platform-specific dialog sizing
+        if self.platform == "Linux":
+            dialog_width, dialog_height = 850, 800
+        else:
+            dialog_width, dialog_height = 750, 700
+        
         # Dialog-Fenster create
         settings_dialog = ctk.CTkToplevel(self.root)
         settings_dialog.title("Session-Einstellungen")
-        settings_dialog.geometry("750x700")
+        settings_dialog.geometry(f"{dialog_width}x{dialog_height}")
         settings_dialog.transient(self.root)
         settings_dialog.grab_set()
         settings_dialog.resizable(False, False)
         
         # Dialog zentrieren
         settings_dialog.update_idletasks()
-        x = (settings_dialog.winfo_screenwidth() // 2) - (750 // 2)
+        x = (settings_dialog.winfo_screenwidth() // 2) - (dialog_width // 2)
+        y = (settings_dialog.winfo_screenheight() // 2) - (dialog_height // 2)
+        settings_dialog.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
         y = (settings_dialog.winfo_screenheight() // 2) - (700 // 2)
         settings_dialog.geometry(f"750x700+{x}+{y}")
         
@@ -2430,7 +2486,7 @@ class A1Terminal:
         
         # Session Panel Width
         self.create_config_slider(ui_settings_frame, "Session Panel Width:", "ui_session_panel_width", 
-                                 200, 600, self.config.get('ui_session_panel_width', 350), "px")
+                                 200, 1000, self.config.get('ui_session_panel_width', 350), "px")
         
         # Window Start Size
         self.create_config_slider(ui_settings_frame, "Window Width (Start):", "ui_window_width", 
@@ -3927,18 +3983,24 @@ class A1Terminal:
             messagebox.showinfo("Export", "No chat session available to export!")
             return
         
+        # Platform-specific dialog sizing
+        if self.platform == "Linux":
+            dialog_width, dialog_height = 1000, 700
+        else:
+            dialog_width, dialog_height = 900, 600
+        
         # Hauptdialog für Formatauswahl
         dialog = ctk.CTkToplevel(self.root)
         dialog.title("Session Export - Format auswählen")
-        dialog.geometry("900x600")
+        dialog.geometry(f"{dialog_width}x{dialog_height}")
         dialog.transient(self.root)
         dialog.grab_set()
         
         # Zentriere das Dialog-Fenster
         dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() // 2) - (900 // 2)
-        y = (dialog.winfo_screenheight() // 2) - (600 // 2)
-        dialog.geometry(f"900x600+{x}+{y}")
+        x = (dialog.winfo_screenwidth() // 2) - (dialog_width // 2)
+        y = (dialog.winfo_screenheight() // 2) - (dialog_height // 2)
+        dialog.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
         
         # Hauptcontainer
         main_frame = ctk.CTkFrame(dialog)
